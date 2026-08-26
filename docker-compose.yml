@@ -65,7 +65,7 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    command: celery -A config worker --loglevel=info
+    command: celery -A config.celery worker --loglevel=info
     volumes:
       - ./backend:/app
     depends_on:
@@ -73,6 +73,20 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: flood_frontend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:
