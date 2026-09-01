@@ -67,3 +67,5 @@ pnpm-debug.log*
 # Build
 dist/
 build/
+# Large raw PDFs
+*.pdf
