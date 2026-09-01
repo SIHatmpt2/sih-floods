@@ -29,8 +29,9 @@ CANONICAL_COLUMNS = [
     "latitude", "longitude", "is_discharge_data_available", "rl_of_zero_gauge", "mean_sea_level", "observed_at",
     "water_level_m", "discharge_cumecs", "source_file", "source_row_number",
 ]
-_TEXT_COLUMNS = ["station", "agency", "state", "district", "tehsil", "block", "village", "river", "basin", "tributary", "subtributary", "subsubtributary", "local_river"]
-_NUMERIC_COLUMNS = ["source_row_number", "state_lgd_code", "district_lgd_code", "latitude", "longitude", "rl_of_zero_gauge", "mean_sea_level", "water_level_m", "discharge_cumecs"]
+_TEXT_COLUMNS = ["station", "agency", "state", "district", "tehsil", "block", "village", "river", "basin", "tributary", "subtributary", "subsubtributary", "local_river", "is_discharge_data_available", "source_file"]
+_FLOAT_COLUMNS = ["latitude", "longitude", "rl_of_zero_gauge", "mean_sea_level", "water_level_m", "discharge_cumecs"]
+_INT_COLUMNS = ["state_lgd_code", "district_lgd_code", "source_row_number"]
 
 
 def _normalize_name(name: object) -> str:
@@ -63,6 +64,21 @@ def _station_id(row: pd.Series) -> str:
     return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
 
 
+def _apply_schema(result: pd.DataFrame) -> pd.DataFrame:
+    for column in CANONICAL_COLUMNS:
+        if column not in result:
+            result[column] = pd.NA
+    for column in _TEXT_COLUMNS:
+        result[column] = result[column].astype("string")
+    for column in _FLOAT_COLUMNS:
+        result[column] = pd.to_numeric(result[column], errors="coerce").astype("Float64")
+    for column in _INT_COLUMNS:
+        result[column] = pd.to_numeric(result[column], errors="coerce").round().astype("Int64")
+    result["station_id"] = result["station_id"].astype("string")
+    result["observed_at"] = pd.to_datetime(result["observed_at"], errors="coerce")
+    return result[CANONICAL_COLUMNS]
+
+
 def clean_cwc_data(df: pd.DataFrame, source_file: str | Path) -> pd.DataFrame:
     """Clean one CWC export; missing measurements remain missing."""
     result = normalize_cwc_columns(df)
@@ -70,7 +86,7 @@ def clean_cwc_data(df: pd.DataFrame, source_file: str | Path) -> pd.DataFrame:
     for column in _TEXT_COLUMNS:
         if column in result:
             result[column] = _nullify_text(result[column])
-    for column in _NUMERIC_COLUMNS:
+    for column in _FLOAT_COLUMNS + _INT_COLUMNS:
         if column in result:
             result[column] = pd.to_numeric(result[column], errors="coerce")
 
@@ -94,17 +110,12 @@ def clean_cwc_data(df: pd.DataFrame, source_file: str | Path) -> pd.DataFrame:
             result[column] = np.nan
 
     invalid_dates = int(result["observed_at"].isna().sum())
-    if invalid_dates:
-        LOGGER.warning("%s: dropping %d invalid/missing timestamps", source, invalid_dates)
-    result = result.dropna(subset=["observed_at", "station_id"]).copy()
+    missing_stations = int(result["station"].isna().sum())
+    if invalid_dates or missing_stations:
+        LOGGER.warning("%s: dropping %d invalid timestamps and %d missing stations", source, invalid_dates, missing_stations)
+    result = result.dropna(subset=["observed_at", "station"]).copy()
     before = len(result)
     result = result.sort_values(["station_id", "observed_at"], kind="stable")
     result = result.drop_duplicates(["station_id", "observed_at"], keep="first").reset_index(drop=True)
     LOGGER.info("Cleaned %s: %d rows retained, %d duplicates removed", source, len(result), before - len(result))
-
-    # Force one stable schema across all source files. Unrecognized source columns
-    # are intentionally excluded from the model dataset; raw CSVs remain intact.
-    for column in CANONICAL_COLUMNS:
-        if column not in result:
-            result[column] = pd.NA
-    return result[CANONICAL_COLUMNS]
+    return _apply_schema(result)
