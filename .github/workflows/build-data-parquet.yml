@@ -1,0 +1,32 @@
+name: Build CWC Parquet datasets
+
+on:
+  push:
+    branches: [saksham]
+  workflow_dispatch:
+
+jobs:
+  build-parquet:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install data-processing dependencies
+        run: pip install -r requirements.txt
+      - name: Build river Parquet
+        run: python -m data_processing.rivers.pipeline
+      - name: Build rainfall Parquet
+        run: python -m data_processing.rainfall.pipeline
+      - name: Upload CWC Parquet artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cwc-parquet
+          path: |
+            backend/data/processed/river_data/parquet/*.parquet
+            backend/data/processed/rainfall/parquet/*.parquet
+          if-no-files-found: error
