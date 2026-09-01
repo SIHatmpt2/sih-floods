@@ -29,7 +29,7 @@ CANONICAL_COLUMNS = [
     "latitude", "longitude", "is_discharge_data_available", "rl_of_zero_gauge", "mean_sea_level", "observed_at",
     "water_level_m", "discharge_cumecs", "source_file", "source_row_number",
 ]
-_TEXT_COLUMNS = [c for c in CANONICAL_COLUMNS if c in {"station", "agency", "state", "district", "tehsil", "block", "village", "river", "basin", "tributary", "subtributary", "subsubtributary", "local_river"}]
+_TEXT_COLUMNS = ["station", "agency", "state", "district", "tehsil", "block", "village", "river", "basin", "tributary", "subtributary", "subsubtributary", "local_river"]
 _NUMERIC_COLUMNS = ["source_row_number", "state_lgd_code", "district_lgd_code", "latitude", "longitude", "rl_of_zero_gauge", "mean_sea_level", "water_level_m", "discharge_cumecs"]
 
 
@@ -102,8 +102,9 @@ def clean_cwc_data(df: pd.DataFrame, source_file: str | Path) -> pd.DataFrame:
     result = result.drop_duplicates(["station_id", "observed_at"], keep="first").reset_index(drop=True)
     LOGGER.info("Cleaned %s: %d rows retained, %d duplicates removed", source, len(result), before - len(result))
 
+    # Force one stable schema across all source files. Unrecognized source columns
+    # are intentionally excluded from the model dataset; raw CSVs remain intact.
     for column in CANONICAL_COLUMNS:
         if column not in result:
             result[column] = pd.NA
-    extras = [c for c in result.columns if c not in CANONICAL_COLUMNS]
-    return result[CANONICAL_COLUMNS + extras]
+    return result[CANONICAL_COLUMNS]
