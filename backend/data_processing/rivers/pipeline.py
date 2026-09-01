@@ -37,16 +37,16 @@ def process_file(input_path: Path, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     frame = pd.read_csv(input_path, low_memory=False)
     cleaned = clean_cwc_data(frame, input_path)
-    featured = add_river_features(cleaned, "water_level_m")
 
-    # Some future CWC exports may contain actual discharge values. Add the same
-    # leakage-safe feature family for discharge without assuming it exists today.
-    if featured["discharge_cumecs"].notna().any():
-        discharge_features = add_river_features(cleaned, "discharge_cumecs")
-        base = set(featured.columns)
-        for column in discharge_features.columns:
-            if column not in base:
-                featured[column] = discharge_features[column].to_numpy()
+    # Both measurement families are emitted for a stable schema. Current CWC
+    # files primarily contain hourly water-level telemetry; discharge columns
+    # remain nullable until a source actually supplies discharge observations.
+    featured = add_river_features(cleaned, "water_level_m")
+    discharge_features = add_river_features(cleaned, "discharge_cumecs")
+    base = set(featured.columns)
+    for column in discharge_features.columns:
+        if column not in base:
+            featured[column] = discharge_features[column].to_numpy()
 
     output_path = output_dir / _output_name(input_path)
     featured.to_parquet(output_path, engine="pyarrow", compression="zstd", index=False)
@@ -55,7 +55,7 @@ def process_file(input_path: Path, output_dir: Path) -> Path:
 
 
 def _write_combined(parquet_files: list[Path], output_path: Path) -> Path:
-    """Combine Parquet fragments while retaining only one file in memory at a time."""
+    """Combine Parquet fragments while retaining one source table in memory at a time."""
     import pyarrow.parquet as pq
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -66,7 +66,7 @@ def _write_combined(parquet_files: list[Path], output_path: Path) -> Path:
             if writer is None:
                 writer = pq.ParquetWriter(output_path, table.schema, compression="zstd")
             elif table.schema != writer.schema:
-                table = table.cast(writer.schema, safe=False)
+                raise ValueError(f"Incompatible Parquet schema in {path}; canonical pipeline should produce identical schemas")
             writer.write_table(table)
     finally:
         if writer is not None:
