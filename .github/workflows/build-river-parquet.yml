@@ -1,0 +1,28 @@
+name: Build river Parquet
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-river-parquet:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install data-processing dependencies
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: pytest data_processing/tests -q
+      - name: Build Parquet datasets
+        run: python -m data_processing.rivers.pipeline
+      - name: Upload Parquet artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: river-parquet
+          path: backend/data/processed/river_data/parquet/*.parquet
+          if-no-files-found: error
