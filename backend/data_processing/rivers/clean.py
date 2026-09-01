@@ -1,0 +1,122 @@
+"""Cleaning and canonicalization for Central Water Commission river data."""
+
+from __future__ import annotations
+
+import hashlib
+import logging
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+LOGGER = logging.getLogger(__name__)
+
+_COLUMN_ALIASES = {
+    "sl_no": "source_row_number", "station": "station", "agency": "agency",
+    "state_lgd_code": "state_lgd_code", "state": "state", "district_lgd_code": "district_lgd_code",
+    "district": "district", "tehsil": "tehsil", "block": "block", "village": "village",
+    "river": "river", "basin": "basin", "tributary": "tributary", "subtributary": "subtributary",
+    "subsubtributary": "subsubtributary", "local_river": "local_river", "latitude": "latitude",
+    "longitude": "longitude", "is_discharge_data_available": "is_discharge_data_available",
+    "rl_of_zero_gauge": "rl_of_zero_gauge", "mean_sea_level": "mean_sea_level",
+    "data_acquisition_time": "observed_at",
+    "river_water_level_telemetry_hourly_meter": "water_level_m",
+    "river_water_level_telemetry_hourly_m": "water_level_m",
+    "river_discharge": "discharge_cumecs", "discharge": "discharge_cumecs", "discharge_cumecs": "discharge_cumecs",
+}
+
+_TEXT_COLUMNS = [
+    "station", "agency", "state", "district", "tehsil", "block", "village", "river", "basin",
+    "tributary", "subtributary", "subsubtributary", "local_river",
+]
+_NUMERIC_COLUMNS = [
+    "source_row_number", "state_lgd_code", "district_lgd_code", "latitude", "longitude",
+    "rl_of_zero_gauge", "mean_sea_level", "water_level_m", "discharge_cumecs",
+]
+
+
+def _normalize_name(name: object) -> str:
+    value = str(name).replace("\ufeff", "").strip().lower()
+    for char in "()/\\-.:;":
+        value = value.replace(char, " ")
+    value = "_".join(value.split())
+    while "__" in value:
+        value = value.replace("__", "_")
+    return value.strip("_")
+
+
+def normalize_cwc_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize known CWC column names into the canonical river schema."""
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("df must be a pandas DataFrame")
+    result = df.copy()
+    result.columns = [_normalize_name(c) for c in result.columns]
+    result = result.rename(columns={c: _COLUMN_ALIASES[c] for c in result.columns if c in _COLUMN_ALIASES})
+    if result.columns.duplicated().any():
+        duplicates = result.columns[result.columns.duplicated()].tolist()
+        raise ValueError(f"Duplicate canonical columns: {duplicates}")
+    return result
+
+
+def _nullify_text(series: pd.Series) -> pd.Series:
+    values = series.astype("string").str.strip()
+    return values.mask(values.str.lower().isin({"", "-", "--", "nan", "none", "null", "n/a", "na"}))
+
+
+def _station_id(row: pd.Series) -> str:
+    parts = [row.get("agency"), row.get("station"), row.get("state"), row.get("district"), row.get("latitude"), row.get("longitude")]
+    text = "|".join("" if pd.isna(value) else str(value).strip().lower() for value in parts)
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+
+
+def clean_cwc_data(df: pd.DataFrame, source_file: str | Path) -> pd.DataFrame:
+    """Clean one CWC export while preserving unknown measurements as missing."""
+    result = normalize_cwc_columns(df)
+    source = Path(source_file).as_posix()
+    for column in _TEXT_COLUMNS:
+        if column in result:
+            result[column] = _nullify_text(result[column])
+    for column in _NUMERIC_COLUMNS:
+        if column in result:
+            result[column] = pd.to_numeric(result[column], errors="coerce")
+
+    if "observed_at" not in result.columns:
+        raise ValueError(f"Missing required CWC timestamp column in {source_file}")
+    if "station" not in result.columns:
+        raise ValueError(f"Missing required CWC station column in {source_file}")
+
+    result["observed_at"] = pd.to_datetime(
+        _nullify_text(result["observed_at"]), format="mixed", dayfirst=True, errors="coerce"
+    )
+    if "latitude" in result:
+        result.loc[~result["latitude"].between(-90, 90), "latitude"] = np.nan
+    if "longitude" in result:
+        result.loc[~result["longitude"].between(-180, 180), "longitude"] = np.nan
+    if "is_discharge_data_available" in result:
+        result["is_discharge_data_available"] = _nullify_text(result["is_discharge_data_available"])
+
+    result["station_id"] = result.apply(_station_id, axis=1)
+    result["source_file"] = source
+    if "water_level_m" not in result:
+        result["water_level_m"] = np.nan
+    if "discharge_cumecs" not in result:
+        result["discharge_cumecs"] = np.nan
+
+    invalid_dates = int(result["observed_at"].isna().sum())
+    if invalid_dates:
+        LOGGER.warning("%s: dropping %d rows with invalid/missing timestamps", source, invalid_dates)
+    result = result.dropna(subset=["observed_at", "station_id"]).copy()
+    before = len(result)
+    result = result.sort_values(["station_id", "observed_at"], kind="stable")
+    result = result.drop_duplicates(["station_id", "observed_at"], keep="first").reset_index(drop=True)
+    LOGGER.info("Cleaned %s: %d rows retained, %d duplicate rows removed", source, len(result), before - len(result))
+
+    ordered = [
+        "station_id", "station", "agency", "state", "district", "tehsil", "block", "village", "river", "basin",
+        "tributary", "subtributary", "subsubtributary", "local_river", "state_lgd_code", "district_lgd_code",
+        "latitude", "longitude", "is_discharge_data_available", "rl_of_zero_gauge", "mean_sea_level", "observed_at",
+        "water_level_m", "discharge_cumecs", "source_file", "source_row_number",
+    ]
+    present = [column for column in ordered if column in result.columns]
+    extras = [column for column in result.columns if column not in present]
+    return result[present + extras]
