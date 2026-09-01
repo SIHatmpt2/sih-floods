@@ -1,6 +1,8 @@
 name: Build river Parquet
 
 on:
+  push:
+    branches: [saksham]
   workflow_dispatch:
 
 jobs:
