@@ -8,26 +8,36 @@ on:
 jobs:
   build-parquet:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install data-processing dependencies
-        run: pip install -r requirements.txt
-      - name: Install test runner
-        run: pip install pytest
+
+      - name: Build backend Docker image
+        run: docker build -t sih-floods-backend-ci -f docker/django/Dockerfile .
+
       - name: Run Django checks and data-processing tests
         run: |
-          python manage.py check
-          pytest data_processing/tests -q
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/backend:/app" \
+            -w /app \
+            sih-floods-backend-ci \
+            sh -c 'python -m pip install --no-cache-dir pytest && python manage.py check && pytest data_processing/tests -q'
+
       - name: Build river Parquet
-        run: python -m data_processing.rivers.pipeline
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/backend:/app" \
+            -w /app \
+            sih-floods-backend-ci \
+            python -m data_processing.rivers.pipeline
+
       - name: Build rainfall Parquet
-        run: python -m data_processing.rainfall.pipeline
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/backend:/app" \
+            -w /app \
+            sih-floods-backend-ci \
+            python -m data_processing.rainfall.pipeline
+
       - name: Upload CWC Parquet artifacts
         uses: actions/upload-artifact@v4
         with:
