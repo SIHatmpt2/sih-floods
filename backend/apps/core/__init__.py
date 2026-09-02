@@ -1,0 +1,1 @@
+"""Shared Django application package."""

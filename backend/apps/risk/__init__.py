@@ -1,0 +1,1 @@
+"""Flood-risk Django application."""
