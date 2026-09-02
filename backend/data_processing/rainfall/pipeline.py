@@ -31,12 +31,15 @@ def _output_name(input_path: Path) -> str:
     return input_path.stem.lower().replace(" ", "_").replace("-", "_") + ".parquet"
 
 
-def process_file(input_path: Path, output_dir: Path) -> Path:
+def process_file(input_path: Path, output_dir: Path, raw_dir: Path | None = None) -> Path:
     """Read, clean, feature-engineer and write one CWC rainfall CSV."""
+    input_path = Path(input_path)
+    raw_dir = Path(raw_dir) if raw_dir is not None else DEFAULT_RAW_DIR
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     frame = pd.read_csv(input_path, low_memory=False)
-    cleaned = clean_cwc_rainfall_data(frame, input_path)
+    source_file = input_path.relative_to(raw_dir).as_posix() if input_path.is_relative_to(raw_dir) else input_path.name
+    cleaned = clean_cwc_rainfall_data(frame, source_file)
     featured = add_rainfall_features(cleaned)
     output_path = output_dir / _output_name(input_path)
     featured.to_parquet(output_path, engine="pyarrow", compression="zstd", index=False)
@@ -71,7 +74,7 @@ def run_pipeline(raw_dir: Path | None = None, output_dir: Path | None = None, co
     files = discover_csv_files(raw_dir)
     if not files:
         raise FileNotFoundError(f"No CSV files found under {raw_dir}")
-    per_file = [process_file(path, output_dir) for path in files]
+    per_file = [process_file(path, output_dir, raw_dir=raw_dir) for path in files]
     combined = _write_combined(per_file, output_dir / "rainfall_observations.parquet") if combine else None
     return {"per_file": per_file, "combined": combined}
 
