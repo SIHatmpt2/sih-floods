@@ -14,6 +14,19 @@ NON_MODEL_COLUMNS = {
     "observed_at",
 }
 
+# Canonical feature prefixes intentionally describe the measurement rather than
+# repeating its storage unit.  This keeps the generated model schema aligned
+# with the public data-processing tests and makes feature names consistent
+# across water-level and discharge measurements.
+_FEATURE_PREFIXES = {
+    "water_level_m": "water_level",
+    "discharge_cumecs": "discharge",
+}
+
+
+def _feature_prefix(value_column: str) -> str:
+    return _FEATURE_PREFIXES.get(value_column, value_column)
+
 
 def add_river_features(df: pd.DataFrame, value_column: str = "water_level_m") -> pd.DataFrame:
     """Add station-local backward-looking lags, rolling statistics and rates of change."""
@@ -22,15 +35,16 @@ def add_river_features(df: pd.DataFrame, value_column: str = "water_level_m") ->
     result = transform_river_data(df)
     result[value_column] = pd.to_numeric(result[value_column], errors="coerce")
     grouped = result.groupby("station_id", sort=False)[value_column]
+    prefix = _feature_prefix(value_column)
     for hours in LAG_HOURS:
-        result[f"{value_column}_lag_{hours}h"] = grouped.shift(hours)
+        result[f"{prefix}_lag_{hours}h"] = grouped.shift(hours)
     for hours in ROLLING_WINDOWS:
         rolling = grouped.rolling(window=hours, min_periods=2)
-        result[f"{value_column}_rolling_mean_{hours}h"] = rolling.mean().reset_index(level=0, drop=True)
-        result[f"{value_column}_rolling_max_{hours}h"] = rolling.max().reset_index(level=0, drop=True)
-        result[f"{value_column}_rolling_std_{hours}h"] = rolling.std().reset_index(level=0, drop=True)
-    result[f"{value_column}_delta_1h"] = grouped.diff()
-    result[f"{value_column}_pct_change_1h"] = grouped.pct_change(fill_method=None)
+        result[f"{prefix}_rolling_mean_{hours}h"] = rolling.mean().reset_index(level=0, drop=True)
+        result[f"{prefix}_rolling_max_{hours}h"] = rolling.max().reset_index(level=0, drop=True)
+        result[f"{prefix}_rolling_std_{hours}h"] = rolling.std().reset_index(level=0, drop=True)
+    result[f"{prefix}_delta_1h"] = grouped.diff()
+    result[f"{prefix}_pct_change_1h"] = grouped.pct_change(fill_method=None)
     return result
 
 
