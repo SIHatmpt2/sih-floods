@@ -20,7 +20,7 @@ jobs:
             -v "$GITHUB_WORKSPACE/backend:/app" \
             -w /app \
             sih-floods-backend-ci \
-            sh -c 'python -m pip install --no-cache-dir pytest && python manage.py check && pytest data_processing/tests -q'
+            sh -c 'python -m pip install --no-cache-dir pytest && python manage.py check && PYTHONPATH=/app pytest data_processing/tests -q'
 
       - name: Build river Parquet
         run: |
