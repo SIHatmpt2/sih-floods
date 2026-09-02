@@ -13,14 +13,14 @@ NON_MODEL_COLUMNS = {
 }
 
 
-def _time_rolling(grouped: pd.core.groupby.SeriesGroupBy, window: str, func: str) -> pd.Series:
-    """Apply a time-based rolling aggregation per station without crossing station boundaries."""
-    indexed = grouped.apply(
-        lambda series: getattr(
-            series.set_axis(series.index), "rolling"
-        )(window=window, min_periods=1 if func != "mean" else 2).__getattribute__(func)()
-    )
-    return indexed.reset_index(level=0, drop=True).sort_index()
+def _time_rolling(result: pd.DataFrame, window: str, func: str, min_periods: int) -> pd.Series:
+    """Compute a time-based rolling statistic independently for each station."""
+    output = pd.Series(index=result.index, dtype="float64")
+    for _, group in result.groupby("station_id", sort=False):
+        values = group.set_index("observed_at")["rainfall_mm"]
+        rolled = getattr(values.rolling(window=window, min_periods=min_periods), func)()
+        output.loc[group.index] = rolled.to_numpy()
+    return output
 
 
 def add_rainfall_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -40,13 +40,11 @@ def add_rainfall_features(df: pd.DataFrame) -> pd.DataFrame:
     for window in LAG_WINDOWS:
         result[f"rainfall_lag_{window}h"] = grouped.shift(window)
 
-    indexed = result.set_index("observed_at")
-    rolling_group = indexed.groupby("station_id", sort=False)["rainfall_mm"]
     for window in ACCUMULATION_WINDOWS:
-        result[f"rainfall_{window}h_sum"] = _time_rolling(rolling_group, f"{window}h", "sum").to_numpy()
+        result[f"rainfall_{window}h_sum"] = _time_rolling(result, f"{window}h", "sum", 1)
 
-    result["rainfall_24h_mean"] = _time_rolling(rolling_group, "24h", "mean").to_numpy()
-    result["rainfall_24h_max"] = _time_rolling(rolling_group, "24h", "max").to_numpy()
+    result["rainfall_24h_mean"] = _time_rolling(result, "24h", "mean", 2)
+    result["rainfall_24h_max"] = _time_rolling(result, "24h", "max", 1)
     result["rainfall_delta_1h"] = grouped.diff()
     result["rainfall_pct_change_1h"] = grouped.pct_change(fill_method=None)
     return result
