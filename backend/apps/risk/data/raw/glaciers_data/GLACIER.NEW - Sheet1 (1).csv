@@ -1,0 +1,43 @@
+Glacier/Lake,Year,Area(Km2),Elevation(metre),Melting rate(Vertical thinning),flood cause,River Originating
+Bokhar Chu,2026,144,"4,164",~0.3km-0.6km horizontal retreat/year,NO,Indus
+Bokhar Chu,2025,146.6,"4,164",~0.3km-0.6km horizontal retreat/year,NO,Indus
+Bokhar Chu,2024,149.29,"4,164",~0.3km-0.6km horizontal retreat/year,NO,Indus
+Bokhar Chu,2023,152,"4,164",~0.3km-0.6km horizontal retreat/year,NO,Indus
+Bokhar Chu,2022,154.75,"4,164",~0.3km-0.6km horizontal retreat/year,Yes (06/07-2022),Indus
+Bokhar Chu,2021,157.56,"4,164",~0.3km-0.6km horizontal retreat/year,NO,Indus
+Bokhar Chu,2020,160.41,"4,164",~0.3km-0.6km horizontal retreat/year,NO,Indus
+Angsi Glacier,2026,22.45,"5,319.70",~0.40-0.47km horizontal retreat/year,NO,Brahmaputra
+Angsi Glacier,2025,22.54,"5,319.70",~0.40-0.47km horizontal retreat/year,NO,Brahmaputra
+Angsi Glacier,2024,22.631,"5,319.70",~0.40-0.47km horizontal retreat/year,NO,Brahmaputra
+Angsi Glacier,2023,22.722,"5,319.70",~0.40-0.47km horizontal retreat/year,NO,Brahmaputra
+Angsi Glacier,2022,22.813,"5,319.70",~0.40-0.47km horizontal retreat/year,NO,Brahmaputra
+Angsi Glacier,2021,22.904,"5,319.70",~0.40-0.47km horizontal retreat/year,NO,Brahmaputra
+Angsi Glacier,2020,23,"5,319.70",~0.40-0.47km horizontal retreat/year,NO,Brahmaputra
+Gangotri Glacier,2026,117.97,"4,000",around 0.79km / year,NO,Ganga
+Gangotri Glacier,2025,118.08,"4,000",around 0.79km / year,NO,Ganga
+Gangotri Glacier,2024,118.18,"4,000",around 0.79km / year,NO,Ganga
+Gangotri Glacier,2023,118.28,"4,000",around 0.79km / year,NO,Ganga
+Gangotri Glacier,2022,118.38,"4,000",around 0.79km / year,NO,Ganga
+Gangotri Glacier,2021,118.48,"4,000",around 0.79km / year,NO,Ganga
+Gangotri Glacier,2020,118.58,"4,000",around 0.79km / year,NO,Ganga
+Teesta Khangtse Glacier,2026,6.62,"5,280",0.01km/year,NO,Teesta
+Teesta Khangtse Glacier,2025,6.63,"5,280",0.01km/year,NO,Teesta
+Teesta Khangtse Glacier,2024,6.64,"5,280",0.01km/year,NO,Teesta
+Teesta Khangtse Glacier,2023,6.65,"5,280",0.01km/year,Yes (3/4-10-2023),Teesta
+Teesta Khangtse Glacier,2022,6.66,"5,280",0.01km/year,NO,Teesta
+Teesta Khangtse Glacier,2021,6.67,"5,280",0.01km/year,NO,Teesta
+Teesta Khangtse Glacier,2020,6.68,"5,280",0.01km/year,NO,Teesta
+Beas Kund,2026,1,"3,700",~0.015km/year,NO,Beas
+Beas Kund,2025,1,"3,700",~0.015km/year,NO,Beas
+Beas Kund,2024,1,"3,700",~0.015km/year,NO,Beas
+Beas Kund,2023,1,"3,700",~0.015km/year,NO,Beas
+Beas Kund,2022,1,"3,700",~0.015km/year,NO,Beas
+Beas Kund,2021,1,"3,700",~0.015km/year,NO,Beas
+Beas Kund,2020,1,"3,700",~0.015km/year,NO,Beas
+Lake Rakshastal,2026,251.63,"4,575",approx 0.31km/year,NO,Sutlej
+Lake Rakshastal,2025,251.95,"4,575",approx 0.31km/year,NO,Sutlej
+Lake Rakshastal,2024,252.27,"4,575",approx 0.31km/year,NO,Sutlej
+Lake Rakshastal,2023,252.59,"4,575",approx 0.31km/year,NO,Sutlej
+Lake Rakshastal,2022,252.91,"4,575",approx 0.31km/year,NO,Sutlej
+Lake Rakshastal,2021,253.23,"4,575",approx 0.31km/year,NO,Sutlej
+Lake Rakshastal,2020,253.55,"4,575",approx 0.31km/year,NO,Sutlej
