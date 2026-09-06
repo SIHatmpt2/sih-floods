@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
+import argparse
+import logging
 import re
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+LOGGER = logging.getLogger(__name__)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_DATA_ROOT = PROJECT_ROOT / "apps" / "risk" / "data"
+DEFAULT_OUTPUT = DEFAULT_DATA_ROOT / "processed" / "training_v1.parquet"
+
 TARGET_COLUMN = "flood_next_72h"
-DEFAULT_OUTPUT = Path("backend/apps/risk/data/processed/training_v1.parquet")
 
 RAIN_FEATURES = ["rainfall_24h", "rainfall_48h", "rainfall_72h", "rainfall_7d", "rainfall_30d"]
 RIVER_FEATURES = [
@@ -73,12 +80,11 @@ def _nearest_rainfall_station(river: pd.DataFrame, rainfall: pd.DataFrame, max_k
     distances = 6371.0088 * 2 * np.arcsin(np.sqrt(np.clip(a, 0, 1)))
     nearest = distances.argmin(axis=1)
     nearest_distance = distances[np.arange(len(r)), nearest]
-    mapping = pd.DataFrame({
+    return pd.DataFrame({
         "river_station_id": r["station_id"].to_numpy(),
         "rain_station_id": p.iloc[nearest]["station_id"].to_numpy(),
         "distance_km": nearest_distance,
-    })
-    return mapping.loc[mapping["distance_km"] <= max_km].reset_index(drop=True)
+    }).loc[lambda frame: frame["distance_km"] <= max_km].reset_index(drop=True)
 
 
 def _aggregate_rainfall(df: pd.DataFrame) -> pd.DataFrame:
@@ -97,8 +103,7 @@ def _aggregate_rainfall(df: pd.DataFrame) -> pd.DataFrame:
         for window, name in [("24h", "rainfall_24h"), ("48h", "rainfall_48h"), ("72h", "rainfall_72h"), ("7D", "rainfall_7d"), ("30D", "rainfall_30d")]:
             features[name] = group["rainfall_mm"].rolling(window, min_periods=1).sum()
         features["station_id"] = station_id
-        features = features.reset_index()
-        pieces.append(features)
+        pieces.append(features.reset_index())
     return pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame(columns=["station_id", "observed_at", "rainfall_mm"] + RAIN_FEATURES)
 
 
@@ -129,10 +134,7 @@ def _add_historical_features(rows: pd.DataFrame, events: pd.DataFrame) -> pd.Dat
         output[c] = 0.0
     for station_id, indices in output.groupby("station_id", sort=False).groups.items():
         station_rows = output.loc[indices]
-        if station_rows.empty:
-            continue
-        station_meta = station_rows.iloc[0]
-        matched = _station_event_subset(station_meta, e)
+        matched = _station_event_subset(station_rows.iloc[0], e)
         dates = matched["event_date"].sort_values().to_numpy(dtype="datetime64[ns]")
         severity_values = matched["severity_numeric"].to_numpy(dtype=float)
         glof_values = matched["glof_numeric"].to_numpy(dtype=int)
@@ -162,7 +164,7 @@ def _label_events(rows: pd.DataFrame, events: pd.DataFrame, horizon_hours: int) 
     e = e.dropna(subset=["event_date", "location"])
     horizon = pd.Timedelta(hours=horizon_hours)
     labels = np.zeros(len(rows), dtype=np.int8)
-    for station_id, indices in rows.groupby("station_id", sort=False).groups.items():
+    for _, indices in rows.groupby("station_id", sort=False).groups.items():
         station_rows = rows.loc[indices]
         matched = _station_event_subset(station_rows.iloc[0], e)
         dates = matched["event_date"].to_numpy(dtype="datetime64[ns]")
@@ -217,14 +219,13 @@ def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd
     rain = _aggregate_rainfall(rainfall)
     mapping = _nearest_rainfall_station(base, rain, rainfall_max_distance_km)
     if not mapping.empty:
-        rain = rain.merge(mapping.rename(columns={"river_station_id": "river_station_id", "rain_station_id": "station_id"}), on="station_id", how="inner")
-        rain = rain.rename(columns={"river_station_id": "river_station_id", "station_id": "rain_station_id"})
+        rain = rain.merge(mapping, left_on="station_id", right_on="rain_station_id", how="inner")
         base = pd.merge_asof(
             base.sort_values("observed_at"), rain.sort_values("observed_at"),
             left_on="observed_at", right_on="observed_at", left_by="station_id", right_by="river_station_id",
             direction="backward", tolerance=pd.Timedelta("3h"), suffixes=("", "_rain"),
         )
-        base = base.drop(columns=[c for c in ("river_station_id", "latitude_rain", "longitude_rain") if c in base.columns], errors="ignore")
+        base = base.drop(columns=[c for c in ("river_station_id", "rain_station_id", "distance_km", "latitude_rain", "longitude_rain") if c in base.columns], errors="ignore")
     else:
         for c in RAIN_FEATURES:
             base[c] = np.nan
@@ -255,3 +256,68 @@ def write_training_table(df: pd.DataFrame, output_path: str | Path = DEFAULT_OUT
     output.parent.mkdir(parents=True, exist_ok=True)
     result.to_parquet(output, engine="pyarrow", compression="zstd", index=False)
     return output
+
+
+def _read_processed(data_root: Path, relative: str, name: str) -> pd.DataFrame:
+    path = data_root / "processed" / relative
+    if not path.exists():
+        raise FileNotFoundError(f"Missing processed {name}: {path}. Run the corresponding data-processing pipeline first.")
+    LOGGER.info("Reading %s: %s", name, path)
+    return pd.read_parquet(path)
+
+
+def load_processed_inputs(data_root: str | Path = DEFAULT_DATA_ROOT) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame | None]:
+    """Load the canonical processed inputs used by V1."""
+    root = Path(data_root)
+    river = _read_processed(root, "river_data/parquet/river_observations.parquet", "river data")
+    rainfall = _read_processed(root, "rainfall/parquet/rainfall_observations.parquet", "rainfall data")
+    events = _read_processed(root, "past_events/parquet/past_flood_events.parquet", "past flood events")
+    glacier_path = root / "processed" / "glaciers_data" / "parquet" / "glacier_changes.parquet"
+    glaciers = pd.read_parquet(glacier_path) if glacier_path.exists() else None
+    if glaciers is None:
+        LOGGER.warning("No combined glacier Parquet found at %s; glacier features will remain null", glacier_path)
+    else:
+        LOGGER.info("Reading glacier data: %s", glacier_path)
+    return river, rainfall, events, glaciers
+
+
+def build_training_dataset(data_root: str | Path = DEFAULT_DATA_ROOT, output_path: str | Path | None = None, rainfall_max_distance_km: float = 50.0, horizon_hours: int = 72) -> Path:
+    """Load processed inputs, build V1, validate it and write the training Parquet."""
+    root = Path(data_root)
+    output = Path(output_path) if output_path is not None else root / "processed" / "training_v1.parquet"
+    river, rainfall, events, glaciers = load_processed_inputs(root)
+    LOGGER.info("Input sizes: river=%d rainfall=%d events=%d glaciers=%s", len(river), len(rainfall), len(events), len(glaciers) if glaciers is not None else "none")
+    table = build_training_table(river, rainfall, events, glaciers=glaciers, rainfall_max_distance_km=rainfall_max_distance_km, horizon_hours=horizon_hours)
+    if table.empty:
+        raise ValueError("V1 training table is empty")
+    positives = int(table[TARGET_COLUMN].sum())
+    LOGGER.info("V1 training table: rows=%d columns=%d positives=%d negatives=%d", len(table), len(table.columns), positives, len(table) - positives)
+    LOGGER.info("V1 date range: %s -> %s", table["observed_at"].min(), table["observed_at"].max())
+    LOGGER.info("V1 missingness (top 10): %s", table.isna().mean().sort_values(ascending=False).head(10).to_dict())
+    return write_training_table(table, output)
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Build the V1 flood-risk training Parquet from processed data")
+    parser.add_argument("--data-root", type=Path, default=DEFAULT_DATA_ROOT)
+    parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--rainfall-max-distance-km", type=float, default=50.0)
+    parser.add_argument("--horizon-hours", type=int, default=72)
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = _parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    output = build_training_dataset(
+        data_root=args.data_root,
+        output_path=args.output,
+        rainfall_max_distance_km=args.rainfall_max_distance_km,
+        horizon_hours=args.horizon_hours,
+    )
+    LOGGER.info("V1 training dataset written to %s", output)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
