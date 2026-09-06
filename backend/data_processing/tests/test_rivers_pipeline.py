@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from data_processing.rivers.clean import clean_cwc_data
 from data_processing.rivers.pipeline import DEFAULT_OUTPUT_DIR, DEFAULT_RAW_DIR, discover_csv_files, process_file, run_pipeline
 
 
@@ -12,16 +13,45 @@ def test_default_paths_are_owned_by_risk_app():
     assert DEFAULT_OUTPUT_DIR == expected / "processed" / "river_data" / "parquet"
 
 
-def _write_fixture(path: Path, station: str, values: list[float]) -> None:
+def _write_fixture(path: Path, station: str, values: list[float], discharge: list[float] | None = None) -> None:
     rows = []
     for hour, value in enumerate(values):
-        rows.append({"Station": station, "Agency": "CWC", "State": "Assam", "District": "D", "Latitude": 26.5, "Longitude": 92.1, "Data Acquisition Time": f"07-05-2026 {hour:02d}:00", "River Water Level Telemetry Hourly (meter)": value})
+        row = {
+            "Station": station,
+            "Agency": "CWC",
+            "State": "Assam",
+            "District": "D",
+            "Latitude": 26.5,
+            "Longitude": 92.1,
+            "Data Acquisition Time": f"07-05-2026 {hour:02d}:00",
+            "River Water Level Telemetry Hourly (meter)": value,
+        }
+        if discharge is not None:
+            row["Telemetry Hourly River Water Discharge (m3/sec)"] = discharge[hour]
+        rows.append(row)
     pd.DataFrame(rows).to_csv(path, index=False)
 
 
-def test_process_file_writes_parquet(tmp_path):
-    source = tmp_path / "input.csv"
-    output = tmp_path / "parquet"
+def test_discharge_header_is_normalized_and_numeric():
+    frame = pd.DataFrame({
+        "Station": ["A"],
+        "Agency": ["CWC"],
+        "State": ["Assam"],
+        "District": ["D"],
+        "Latitude": [26.5],
+        "Longitude": [92.1],
+        "Data Acquisition Time": ["07-05-2026 00:00"],
+        "Telemetry Hourly River Water Discharge (m3/sec)": ["12.5"],
+    })
+    cleaned = clean_cwc_data(frame, "input.csv")
+    assert cleaned["discharge_cumecs"].notna().all()
+    assert cleaned["discharge_cumecs"].iloc[0] == 12.5
+
+
+def test_process_file_writes_parquet():
+    source = Path("input.csv")
+    output = Path("parquet")
+    # Existing test intentionally exercises the historical water-level fixture.
     _write_fixture(source, "A", [1.0, 2.0])
     result = process_file(source, output)
     assert result.exists()
@@ -29,6 +59,18 @@ def test_process_file_writes_parquet(tmp_path):
     assert len(frame) == 2
     assert "station_id" in frame.columns
     assert "water_level_lag_1h" in frame.columns
+
+
+def test_process_file_preserves_discharge_features(tmp_path):
+    source = tmp_path / "input.csv"
+    output = tmp_path / "parquet"
+    _write_fixture(source, "A", [1.0, 2.0, 3.0], [10.0, 20.0, 30.0])
+    result = process_file(source, output)
+    frame = pd.read_parquet(result)
+    assert frame["discharge_cumecs"].notna().all()
+    assert frame["discharge_cumecs"].tolist() == [10.0, 20.0, 30.0]
+    assert frame["discharge_delta_1h"].iloc[1] == 10.0
+    assert frame["discharge_lag_1h"].iloc[1] == 10.0
 
 
 def test_discovery_is_recursive_and_sorted(tmp_path):
