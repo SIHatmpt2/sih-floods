@@ -51,6 +51,34 @@ def test_build_training_table_has_stable_schema_and_future_label():
     assert result["station_id"].isna().sum() == 0
 
 
+def test_build_training_table_handles_nullable_river_values():
+    timestamps = pd.date_range("2025-07-01", periods=3, freq="h")
+    river = pd.DataFrame({
+        "station_id": pd.Series(["river-1", "river-1", "river-1"], dtype="string"),
+        "station": ["Station A"] * 3,
+        "state": ["Himachal Pradesh"] * 3,
+        "district": ["Kinnaur"] * 3,
+        "river": ["Sutlej"] * 3,
+        "basin": ["Indus"] * 3,
+        "latitude": [31.0] * 3,
+        "longitude": [78.0] * 3,
+        "observed_at": timestamps,
+        "water_level_m": pd.Series([3.0, pd.NA, 4.0], dtype="Float64"),
+        "discharge_cumecs": pd.Series([100.0, pd.NA, 120.0], dtype="Float64"),
+    })
+    rainfall = pd.DataFrame({
+        "station_id": ["rain-1"], "station": ["Rain A"], "latitude": [31.01], "longitude": [78.01],
+        "observed_at": [timestamps[0]], "rainfall_mm": [5.0],
+    })
+    events = pd.DataFrame({"event_date": [pd.Timestamp("2025-07-10")], "location": ["Kinnaur"]})
+
+    result = build_training_table(river, rainfall, events, rainfall_max_distance_km=50)
+
+    assert len(result) == 3
+    assert pd.isna(result.loc[1, "water_level_pct_change_1h"])
+    assert pd.isna(result.loc[1, "discharge_pct_change_1h"])
+
+
 def test_build_training_dataset_loads_processed_inputs_and_writes_output(tmp_path: Path):
     data_root = tmp_path / "data"
     processed = data_root / "processed"
