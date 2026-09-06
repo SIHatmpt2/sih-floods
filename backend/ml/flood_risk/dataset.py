@@ -145,44 +145,80 @@ def _event_map(rows: pd.DataFrame, events: pd.DataFrame) -> dict[str, pd.DataFra
 
 
 def _add_historical_features(rows: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
+    """Add historical flood features while keeping memory bounded."""
     _require(events, {"event_date", "location"}, "flood events")
-    e = events.copy()
+
+    e = events[[c for c in ["event_date", "location", "severity_index", "glof_risk"] if c in events.columns]].copy()
+    if "severity_index" not in e.columns:
+        e["severity_index"] = np.nan
+    if "glof_risk" not in e.columns:
+        e["glof_risk"] = ""
+
     e["event_date"] = pd.to_datetime(e["event_date"], errors="coerce")
     e = e.dropna(subset=["event_date", "location"]).sort_values("event_date", kind="stable")
-    out = rows.copy()
-    for column in HISTORICAL_FEATURES:
-        out[column] = 0.0
-    mapping = _event_map(out, e)
-    for station_id, idx in out.groupby("station_id", sort=False).groups.items():
+    e["severity_index"] = pd.to_numeric(e["severity_index"], errors="coerce").astype("float32")
+    e["glof_risk"] = e["glof_risk"].fillna("").astype(str)
+
+    mapping = _event_map(rows, e)
+    n = len(rows)
+    feature_values = {
+        "flood_count_1y": np.zeros(n, dtype=np.float32),
+        "flood_count_3y": np.zeros(n, dtype=np.float32),
+        "flood_count_5y": np.zeros(n, dtype=np.float32),
+        "days_since_last_flood": np.full(n, np.nan, dtype=np.float32),
+        "historical_max_severity": np.full(n, np.nan, dtype=np.float32),
+        "historical_mean_severity": np.full(n, np.nan, dtype=np.float32),
+        "historical_glof_count": np.zeros(n, dtype=np.float32),
+    }
+
+    for station_id, idx in rows.groupby("station_id", sort=False).groups.items():
         matched = mapping.get(str(station_id))
-        if matched is None:
+        if matched is None or matched.empty:
             continue
+
         dates = matched["event_date"].to_numpy(dtype="datetime64[ns]")
-        severity = pd.to_numeric(matched.get("severity_index", pd.Series(np.nan, index=matched.index)), errors="coerce").to_numpy(dtype=float)
-        glof = matched.get("glof_risk", pd.Series("", index=matched.index)).fillna("").astype(str).str.lower().str.contains("high|critical|probable|suspected", regex=True).to_numpy(dtype=np.int8)
-        ts = out.loc[idx, "observed_at"].to_numpy(dtype="datetime64[ns]")
-        pos = np.searchsorted(dates, ts, side="left")
+        severity = matched["severity_index"].to_numpy(dtype=np.float32)
+        glof = matched["glof_risk"].str.lower().str.contains(
+            "high|critical|probable|suspected", regex=True, na=False
+        ).to_numpy(dtype=np.int8)
+
+        positions = np.asarray(idx)
+        timestamps = rows.iloc[positions]["observed_at"].to_numpy(dtype="datetime64[ns]")
+        order = np.argsort(timestamps)
+        timestamps = timestamps[order]
+        positions = positions[order]
+        event_positions = np.searchsorted(dates, timestamps, side="left")
+
         for days, name in ((365, "flood_count_1y"), (1095, "flood_count_3y"), (1825, "flood_count_5y")):
-            left = np.searchsorted(dates, ts - np.timedelta64(days, "D"), side="left")
-            out.loc[idx, name] = pos - left
-        prior = pos - 1
+            left = np.searchsorted(dates, timestamps - np.timedelta64(days, "D"), side="left")
+            feature_values[name][positions] = (event_positions - left).astype(np.float32)
+
+        prior = event_positions - 1
         valid = prior >= 0
-        since = np.full(len(ts), np.nan)
-        since[valid] = (ts[valid] - dates[prior[valid]]).astype("timedelta64[D]").astype(float)
-        out.loc[idx, "days_since_last_flood"] = since
-        max_values = np.full(len(ts), np.nan)
-        mean_values = np.full(len(ts), np.nan)
-        glof_values = np.zeros(len(ts))
-        for j, p in enumerate(pos):
+        since = np.full(len(timestamps), np.nan, dtype=np.float32)
+        if valid.any():
+            since[valid] = (timestamps[valid] - dates[prior[valid]]).astype("timedelta64[D]").astype(np.float32)
+        feature_values["days_since_last_flood"][positions] = since
+
+        max_values = np.full(len(timestamps), np.nan, dtype=np.float32)
+        mean_values = np.full(len(timestamps), np.nan, dtype=np.float32)
+        glof_values = np.zeros(len(timestamps), dtype=np.float32)
+        for j, p in enumerate(event_positions):
             if p:
-                vals = severity[:p][np.isfinite(severity[:p])]
+                vals = severity[:p]
+                vals = vals[np.isfinite(vals)]
                 if len(vals):
                     max_values[j] = vals.max()
                     mean_values[j] = vals.mean()
                 glof_values[j] = glof[:p].sum()
-        out.loc[idx, "historical_max_severity"] = max_values
-        out.loc[idx, "historical_mean_severity"] = mean_values
-        out.loc[idx, "historical_glof_count"] = glof_values
+
+        feature_values["historical_max_severity"][positions] = max_values
+        feature_values["historical_mean_severity"][positions] = mean_values
+        feature_values["historical_glof_count"][positions] = glof_values
+
+    out = rows.copy()
+    for name, values in feature_values.items():
+        out[name] = values
     return out
 
 
@@ -274,9 +310,6 @@ def _add_rainfall_features(base: pd.DataFrame, rain: pd.DataFrame, mapping: pd.D
             direction="backward",
             tolerance=pd.Timedelta(hours=3),
         )
-        target_index = joined.index
-        # joined preserves the sorted left-row index; restore those values by
-        # using the original left index carried explicitly below.
         left_positions = left.index.to_numpy()
         for column in RAIN_FEATURES:
             out.loc[left_positions, column] = joined[column].to_numpy()
