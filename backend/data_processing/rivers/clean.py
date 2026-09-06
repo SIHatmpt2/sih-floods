@@ -58,6 +58,7 @@ _TEXT_COLUMNS = [
 ]
 _FLOAT_COLUMNS = ["latitude", "longitude", "rl_of_zero_gauge", "mean_sea_level", "water_level_m", "discharge_cumecs"]
 _INT_COLUMNS = ["state_lgd_code", "district_lgd_code", "source_row_number"]
+_DISCHARGE_SENTINELS = {-99999.0, -99999.99, 99999.0, 99999.99, 100000.0}
 
 
 def _normalize_name(name: object) -> str:
@@ -127,6 +128,9 @@ def clean_cwc_data(df: pd.DataFrame, source_file: str | Path) -> pd.DataFrame:
     for column in _FLOAT_COLUMNS + _INT_COLUMNS:
         if column in result:
             result[column] = _coerce_measurement(result[column]) if column in {"water_level_m", "discharge_cumecs"} else pd.to_numeric(result[column], errors="coerce")
+
+    if "discharge_cumecs" in result:
+        result.loc[result["discharge_cumecs"].isin(_DISCHARGE_SENTINELS), "discharge_cumecs"] = np.nan
 
     if "observed_at" not in result.columns:
         raise ValueError(f"Missing required CWC timestamp column in {source_file}")
