@@ -54,6 +54,7 @@ def _prepare_river(df: pd.DataFrame) -> pd.DataFrame:
     _require(df, {"station_id", "observed_at"}, "river data")
     keep = ["station_id", "observed_at", "station", "state", "district", "tehsil", "block", "village", "river", "basin", "latitude", "longitude", "water_level_m", "discharge_cumecs"]
     result = df[[c for c in keep if c in df.columns]].copy()
+    result["station_id"] = result["station_id"].astype("string")
     result["observed_at"] = pd.to_datetime(result["observed_at"], errors="coerce")
     result = result.dropna(subset=["station_id", "observed_at"])
     if result.duplicated(["station_id", "observed_at"]).any():
@@ -66,9 +67,6 @@ def _add_river_features(df: pd.DataFrame) -> pd.DataFrame:
     for source, prefix in (("water_level_m", "water_level"), ("discharge_cumecs", "discharge")):
         if source not in out.columns:
             continue
-        # CWC Parquets can contain pandas nullable values. Convert explicitly to a
-        # NumPy-backed float series before boolean arithmetic so pd.NA cannot leak
-        # into np.where and raise "boolean value of NA is ambiguous".
         values = pd.to_numeric(out[source], errors="coerce").astype("float64")
         grouped = values.groupby(out["station_id"], sort=False)
         prev = grouped.shift(1)
@@ -90,6 +88,7 @@ def _aggregate_rainfall(df: pd.DataFrame) -> pd.DataFrame:
     _require(df, {"station_id", "observed_at", "rainfall_mm"}, "rainfall data")
     keep = [c for c in ["station_id", "observed_at", "rainfall_mm", "latitude", "longitude"] if c in df.columns]
     result = df[keep].copy()
+    result["station_id"] = result["station_id"].astype("string")
     result["observed_at"] = pd.to_datetime(result["observed_at"], errors="coerce")
     result["rainfall_mm"] = pd.to_numeric(result["rainfall_mm"], errors="coerce")
     result = result.dropna(subset=["station_id", "observed_at"]).drop_duplicates(["station_id", "observed_at"], keep="last")
@@ -123,7 +122,7 @@ def _nearest_rainfall_station(river: pd.DataFrame, rainfall: pd.DataFrame, max_k
     distances = 6371.0088 * 2 * np.arcsin(np.sqrt(np.clip(a, 0, 1)))
     nearest = distances.argmin(axis=1)
     distance = distances[np.arange(len(r)), nearest]
-    return pd.DataFrame({"river_station_id": r["station_id"].to_numpy(), "rain_station_id": p.iloc[nearest]["station_id"].to_numpy(), "distance_km": distance}).loc[lambda x: x.distance_km <= max_km].reset_index(drop=True)
+    return pd.DataFrame({"river_station_id": r["station_id"].astype("string").to_numpy(), "rain_station_id": p.iloc[nearest]["station_id"].astype("string").to_numpy(), "distance_km": distance}).loc[lambda x: x.distance_km <= max_km].reset_index(drop=True)
 
 
 def _event_map(rows: pd.DataFrame, events: pd.DataFrame) -> dict[str, pd.DataFrame]:
@@ -257,6 +256,12 @@ def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd
         LOGGER.info("Joining rainfall: %d station mappings", len(mapping))
         left = base.sort_values("observed_at", kind="stable")
         right = rain.sort_values("observed_at", kind="stable")
+        # merge_asof requires the temporal key and each grouping key to have
+        # compatible dtypes. Keep station identifiers as pandas StringDtype on
+        # both sides of the join; source Parquets may otherwise mix string[python]
+        # and object depending on how they were written.
+        left["station_id"] = left["station_id"].astype("string")
+        right["river_station_id"] = right["river_station_id"].astype("string")
         base = pd.merge_asof(left, right, on="observed_at", left_by="station_id", right_by="river_station_id", direction="backward", tolerance=pd.Timedelta("3h"), suffixes=("", "_rain"))
         base = base.drop(columns=["river_station_id", "rain_station_id", "distance_km", "latitude_rain", "longitude_rain"], errors="ignore")
     LOGGER.info("Adding historical flood features")
