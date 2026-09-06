@@ -48,10 +48,9 @@ def test_discharge_header_is_normalized_and_numeric():
     assert cleaned["discharge_cumecs"].iloc[0] == 12.5
 
 
-def test_process_file_writes_parquet():
-    source = Path("input.csv")
-    output = Path("parquet")
-    # Existing test intentionally exercises the historical water-level fixture.
+def test_process_file_writes_parquet(tmp_path):
+    source = tmp_path / "input.csv"
+    output = tmp_path / "parquet"
     _write_fixture(source, "A", [1.0, 2.0])
     result = process_file(source, output)
     assert result.exists()
