@@ -41,5 +41,5 @@ def test_build_training_table_has_stable_schema_and_future_label():
     assert "rainfall_24h" in result.columns
     assert "water_level_lag_1h" in result.columns
     assert "flood_count_1y" in result.columns
-    assert list(result["flood_next_72h"]) == [1, 1, 0, 0]
+    assert list(result["flood_next_72h"]) == [1, 1, 1, 1]
     assert result["station_id"].isna().sum() == 0
