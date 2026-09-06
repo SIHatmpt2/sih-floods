@@ -2,8 +2,8 @@
 
 import pandas as pd
 
-from backend.data_processing.glaciers.clean import clean_glacier_data
-from backend.data_processing.glaciers.features import add_glacier_features
+from data_processing.glaciers.clean import clean_glacier_data
+from data_processing.glaciers.features import add_glacier_features
 
 
 def test_clean_and_feature_glacier_data(tmp_path):
