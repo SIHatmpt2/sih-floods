@@ -30,7 +30,10 @@ RIVER_FEATURES = [
     "discharge_rolling_mean_6h", "discharge_rolling_max_6h", "discharge_rolling_std_6h",
     "discharge_rolling_mean_24h", "discharge_rolling_max_24h", "discharge_rolling_std_24h",
 ]
-HISTORICAL_FEATURES = ["flood_count_1y", "flood_count_3y", "flood_count_5y", "days_since_last_flood", "historical_max_severity", "historical_mean_severity", "historical_glof_count"]
+HISTORICAL_FEATURES = [
+    "flood_count_1y", "flood_count_3y", "flood_count_5y", "days_since_last_flood",
+    "historical_max_severity", "historical_mean_severity", "historical_glof_count",
+]
 GLACIER_FEATURES = [
     "glacier_area_km2", "glacier_area_change_1y_km2", "glacier_area_change_1y_pct",
     "glacier_cumulative_area_change_km2", "glacier_cumulative_area_change_pct",
@@ -57,8 +60,7 @@ def _prepare_river(df: pd.DataFrame) -> pd.DataFrame:
     result["station_id"] = result["station_id"].astype("string")
     result["observed_at"] = pd.to_datetime(result["observed_at"], errors="coerce")
     result = result.dropna(subset=["station_id", "observed_at"])
-    if result.duplicated(["station_id", "observed_at"]).any():
-        result = result.drop_duplicates(["station_id", "observed_at"], keep="last")
+    result = result.drop_duplicates(["station_id", "observed_at"], keep="last")
     return result.reset_index(drop=True)
 
 
@@ -72,8 +74,7 @@ def _add_river_features(df: pd.DataFrame) -> pd.DataFrame:
         prev = grouped.shift(1)
         out[source] = values
         out[f"{prefix}_delta_1h"] = values - prev
-        pct = (values - prev).div(prev).mul(100.0)
-        out[f"{prefix}_pct_change_1h"] = pct.where(prev.notna() & prev.ne(0))
+        out[f"{prefix}_pct_change_1h"] = ((values - prev) / prev * 100.0).where(prev.notna() & prev.ne(0))
         for n in (1, 3, 6, 12, 24):
             out[f"{prefix}_lag_{n}h"] = grouped.shift(n)
         for n in (6, 24):
@@ -147,18 +148,15 @@ def _event_map(rows: pd.DataFrame, events: pd.DataFrame) -> dict[str, pd.DataFra
 def _add_historical_features(rows: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
     """Add historical flood features while keeping memory bounded."""
     _require(events, {"event_date", "location"}, "flood events")
-
     e = events[[c for c in ["event_date", "location", "severity_index", "glof_risk"] if c in events.columns]].copy()
     if "severity_index" not in e.columns:
         e["severity_index"] = np.nan
     if "glof_risk" not in e.columns:
         e["glof_risk"] = ""
-
     e["event_date"] = pd.to_datetime(e["event_date"], errors="coerce")
     e = e.dropna(subset=["event_date", "location"]).sort_values("event_date", kind="stable")
     e["severity_index"] = pd.to_numeric(e["severity_index"], errors="coerce").astype("float32")
     e["glof_risk"] = e["glof_risk"].fillna("").astype(str)
-
     mapping = _event_map(rows, e)
     n = len(rows)
     feature_values = {
@@ -170,36 +168,28 @@ def _add_historical_features(rows: pd.DataFrame, events: pd.DataFrame) -> pd.Dat
         "historical_mean_severity": np.full(n, np.nan, dtype=np.float32),
         "historical_glof_count": np.zeros(n, dtype=np.float32),
     }
-
     for station_id, idx in rows.groupby("station_id", sort=False).groups.items():
         matched = mapping.get(str(station_id))
         if matched is None or matched.empty:
             continue
-
         dates = matched["event_date"].to_numpy(dtype="datetime64[ns]")
         severity = matched["severity_index"].to_numpy(dtype=np.float32)
-        glof = matched["glof_risk"].str.lower().str.contains(
-            "high|critical|probable|suspected", regex=True, na=False
-        ).to_numpy(dtype=np.int8)
-
+        glof = matched["glof_risk"].str.lower().str.contains("high|critical|probable|suspected", regex=True, na=False).to_numpy(dtype=np.int8)
         positions = np.asarray(idx)
         timestamps = rows.iloc[positions]["observed_at"].to_numpy(dtype="datetime64[ns]")
         order = np.argsort(timestamps)
         timestamps = timestamps[order]
         positions = positions[order]
         event_positions = np.searchsorted(dates, timestamps, side="left")
-
         for days, name in ((365, "flood_count_1y"), (1095, "flood_count_3y"), (1825, "flood_count_5y")):
             left = np.searchsorted(dates, timestamps - np.timedelta64(days, "D"), side="left")
             feature_values[name][positions] = (event_positions - left).astype(np.float32)
-
         prior = event_positions - 1
         valid = prior >= 0
         since = np.full(len(timestamps), np.nan, dtype=np.float32)
         if valid.any():
             since[valid] = (timestamps[valid] - dates[prior[valid]]).astype("timedelta64[D]").astype(np.float32)
         feature_values["days_since_last_flood"][positions] = since
-
         max_values = np.full(len(timestamps), np.nan, dtype=np.float32)
         mean_values = np.full(len(timestamps), np.nan, dtype=np.float32)
         glof_values = np.zeros(len(timestamps), dtype=np.float32)
@@ -211,11 +201,9 @@ def _add_historical_features(rows: pd.DataFrame, events: pd.DataFrame) -> pd.Dat
                     max_values[j] = vals.max()
                     mean_values[j] = vals.mean()
                 glof_values[j] = glof[:p].sum()
-
         feature_values["historical_max_severity"][positions] = max_values
         feature_values["historical_mean_severity"][positions] = mean_values
         feature_values["historical_glof_count"][positions] = glof_values
-
     out = rows.copy()
     for name, values in feature_values.items():
         out[name] = values
@@ -249,7 +237,13 @@ def _add_glacier_state(rows: pd.DataFrame, glaciers: pd.DataFrame) -> pd.DataFra
     g = glaciers.copy()
     g["year"] = pd.to_numeric(g["year"], errors="coerce")
     g = g.dropna(subset=["year"]).sort_values(["glacier_lake", "year"], kind="stable")
-    mapping = {"area_km2": "glacier_area_km2", "area_change_1y_km2": "glacier_area_change_1y_km2", "area_change_1y_pct": "glacier_area_change_1y_pct", "cumulative_area_change_km2": "glacier_cumulative_area_change_km2", "cumulative_area_change_pct": "glacier_cumulative_area_change_pct", "elevation_m": "glacier_elevation_m", "melting_rate_min_km_per_year": "glacier_melting_rate_min_km_per_year", "melting_rate_max_km_per_year": "glacier_melting_rate_max_km_per_year"}
+    mapping = {
+        "area_km2": "glacier_area_km2", "area_change_1y_km2": "glacier_area_change_1y_km2",
+        "area_change_1y_pct": "glacier_area_change_1y_pct", "cumulative_area_change_km2": "glacier_cumulative_area_change_km2",
+        "cumulative_area_change_pct": "glacier_cumulative_area_change_pct", "elevation_m": "glacier_elevation_m",
+        "melting_rate_min_km_per_year": "glacier_melting_rate_min_km_per_year",
+        "melting_rate_max_km_per_year": "glacier_melting_rate_max_km_per_year",
+    }
     available = [c for c in mapping if c in g.columns]
     if not available:
         return rows
@@ -274,12 +268,11 @@ def _add_glacier_state(rows: pd.DataFrame, glaciers: pd.DataFrame) -> pd.DataFra
 
 
 def _add_rainfall_features(base: pd.DataFrame, rain: pd.DataFrame, mapping: pd.DataFrame) -> pd.DataFrame:
-    """Join rainfall features without materializing one giant merge_asof result.
+    """Join mapped rainfall features without a large all-stations merge.
 
-    The previous all-stations merge_asof creates a large temporary DataFrame
-    alongside the already-large river feature table. On a local Docker/CPU
-    setup that can exhaust the container and produce exit code 137. Joining
-    one mapped station at a time keeps the peak working set bounded.
+    The mapping has a river station ID and a rainfall station ID. The previous
+    implementation asked merge_asof to compare those different IDs under the
+    same `station_id` key, so almost all rainfall values could never match.
     """
     out = base.copy()
     for column in RAIN_FEATURES:
@@ -287,6 +280,8 @@ def _add_rainfall_features(base: pd.DataFrame, rain: pd.DataFrame, mapping: pd.D
 
     rain_by_station = {str(k): g for k, g in rain.groupby("station_id", sort=False)}
     base_groups = out.groupby("station_id", sort=False).groups
+    matched_rows = 0
+
     for row in mapping.itertuples(index=False):
         river_id = str(row.river_station_id)
         rain_id = str(row.rain_station_id)
@@ -295,26 +290,29 @@ def _add_rainfall_features(base: pd.DataFrame, rain: pd.DataFrame, mapping: pd.D
         if indices is None or rain_group is None:
             continue
 
-        left = out.loc[indices, ["station_id", "observed_at"]].copy()
-        left["station_id"] = left["station_id"].astype("string")
-        right = rain_group[["station_id", "observed_at"] + RAIN_FEATURES].copy()
-        right["station_id"] = right["station_id"].astype("string")
+        left = out.loc[indices, ["observed_at"]].copy()
+        left["_join_station_id"] = river_id
+        right = rain_group[["observed_at"] + RAIN_FEATURES].copy()
+        right["_join_station_id"] = river_id
         left = left.sort_values("observed_at", kind="stable")
         right = right.sort_values("observed_at", kind="stable")
+
         joined = pd.merge_asof(
             left,
             right,
             on="observed_at",
-            left_by="station_id",
-            right_by="station_id",
+            by="_join_station_id",
             direction="backward",
             tolerance=pd.Timedelta(hours=3),
         )
         left_positions = left.index.to_numpy()
         for column in RAIN_FEATURES:
-            out.loc[left_positions, column] = joined[column].to_numpy()
+            values = joined[column].to_numpy()
+            out.loc[left_positions, column] = values
+            matched_rows += int(pd.notna(values).sum())
         del left, right, joined
 
+    LOGGER.info("Rainfall join populated %d feature values", matched_rows)
     return out
 
 
