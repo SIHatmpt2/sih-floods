@@ -238,12 +238,12 @@ def _add_glacier_state(rows: pd.DataFrame, glaciers: pd.DataFrame) -> pd.DataFra
 
 
 def _add_rainfall_features(base: pd.DataFrame, rain: pd.DataFrame, mapping: pd.DataFrame) -> pd.DataFrame:
-    """Join rainfall features without materializing one giant merge_asof result.
+    """Join mapped rainfall features without a large all-stations merge.
 
-    The previous all-stations merge_asof creates a large temporary DataFrame
-    alongside the already-large river feature table. On a local Docker/CPU
-    setup that can exhaust the container and produce exit code 137. Joining
-    one mapped station at a time keeps the peak working set bounded.
+    The mapping has a river station ID and a rainfall station ID. Joining on
+    the two original station IDs under the same merge key prevents rainfall
+    from matching when those IDs differ. We instead use a common temporary key
+    while joining one mapped station at a time to keep peak memory bounded.
     """
     out = base.copy()
     for column in RAIN_FEATURES:
@@ -251,6 +251,8 @@ def _add_rainfall_features(base: pd.DataFrame, rain: pd.DataFrame, mapping: pd.D
 
     rain_by_station = {str(k): g for k, g in rain.groupby("station_id", sort=False)}
     base_groups = out.groupby("station_id", sort=False).groups
+    matched_rows = 0
+
     for row in mapping.itertuples(index=False):
         river_id = str(row.river_station_id)
         rain_id = str(row.rain_station_id)
@@ -259,29 +261,28 @@ def _add_rainfall_features(base: pd.DataFrame, rain: pd.DataFrame, mapping: pd.D
         if indices is None or rain_group is None:
             continue
 
-        left = out.loc[indices, ["station_id", "observed_at"]].copy()
-        left["station_id"] = left["station_id"].astype("string")
-        right = rain_group[["station_id", "observed_at"] + RAIN_FEATURES].copy()
-        right["station_id"] = right["station_id"].astype("string")
+        left = out.loc[indices, ["observed_at"]].copy()
+        left["_join_station_id"] = river_id
+        right = rain_group[["observed_at"] + RAIN_FEATURES].copy()
+        right["_join_station_id"] = river_id
         left = left.sort_values("observed_at", kind="stable")
         right = right.sort_values("observed_at", kind="stable")
         joined = pd.merge_asof(
             left,
             right,
             on="observed_at",
-            left_by="station_id",
-            right_by="station_id",
+            by="_join_station_id",
             direction="backward",
             tolerance=pd.Timedelta(hours=3),
         )
-        target_index = joined.index
-        # joined preserves the sorted left-row index; restore those values by
-        # using the original left index carried explicitly below.
         left_positions = left.index.to_numpy()
         for column in RAIN_FEATURES:
-            out.loc[left_positions, column] = joined[column].to_numpy()
+            values = joined[column].to_numpy()
+            out.loc[left_positions, column] = values
+            matched_rows += int(pd.notna(values).sum())
         del left, right, joined
 
+    LOGGER.info("Rainfall join populated %d feature values", matched_rows)
     return out
 
 
