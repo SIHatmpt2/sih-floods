@@ -45,6 +45,8 @@ def test_build_training_table_has_stable_schema_and_future_label():
 
     assert TARGET_COLUMN in result.columns
     assert "rainfall_24h" in result.columns
+    assert result["rainfall_24h"].notna().all()
+    assert result["rainfall_24h"].tolist() == [5.0, 15.0, 35.0, 65.0]
     assert "water_level_lag_1h" in result.columns
     assert "flood_count_1y" in result.columns
     assert list(result["flood_next_72h"]) == [1, 1, 1, 1]
