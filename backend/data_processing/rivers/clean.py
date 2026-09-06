@@ -130,7 +130,11 @@ def clean_cwc_data(df: pd.DataFrame, source_file: str | Path) -> pd.DataFrame:
             result[column] = _coerce_measurement(result[column]) if column in {"water_level_m", "discharge_cumecs"} else pd.to_numeric(result[column], errors="coerce")
 
     if "discharge_cumecs" in result:
-        result.loc[result["discharge_cumecs"].isin(_DISCHARGE_SENTINELS), "discharge_cumecs"] = np.nan
+        result.loc[
+            result["discharge_cumecs"].isin(_DISCHARGE_SENTINELS)
+            | (result["discharge_cumecs"] < 0),
+            "discharge_cumecs",
+        ] = np.nan
 
     if "observed_at" not in result.columns:
         raise ValueError(f"Missing required CWC timestamp column in {source_file}")
