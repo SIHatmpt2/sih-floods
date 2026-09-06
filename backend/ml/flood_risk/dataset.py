@@ -102,9 +102,12 @@ def _aggregate_rainfall(df: pd.DataFrame) -> pd.DataFrame:
         features = group[["rainfall_mm"]].copy()
         for window, name in [("24h", "rainfall_24h"), ("48h", "rainfall_48h"), ("72h", "rainfall_72h"), ("7D", "rainfall_7d"), ("30D", "rainfall_30d")]:
             features[name] = group["rainfall_mm"].rolling(window, min_periods=1).sum()
+        for coordinate in ("latitude", "longitude"):
+            if coordinate in group.columns:
+                features[coordinate] = group[coordinate].iloc[0]
         features["station_id"] = station_id
         pieces.append(features.reset_index())
-    return pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame(columns=["station_id", "observed_at", "rainfall_mm"] + RAIN_FEATURES)
+    return pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame(columns=["station_id", "observed_at", "rainfall_mm"] + RAIN_FEATURES + ["latitude", "longitude"])
 
 
 def _station_event_subset(station_row: pd.Series, events: pd.DataFrame) -> pd.DataFrame:
