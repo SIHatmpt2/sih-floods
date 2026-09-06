@@ -1,9 +1,9 @@
-"""Unit tests for the historical flood-event cleaning and feature pipeline."""
+"""Smoke tests for the historical flood-event pipeline helpers."""
 
 import pandas as pd
 
-from backend.data_processing.past_events.clean import clean_past_events_data
-from backend.data_processing.past_events.features import add_event_features
+from data_processing.past_events.clean import clean_past_events_data
+from data_processing.past_events.features import add_event_features
 
 
 def test_clean_and_feature_event_data(tmp_path):
