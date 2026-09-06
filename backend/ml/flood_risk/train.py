@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 from pathlib import Path
 
 import numpy as np
@@ -38,6 +39,10 @@ FEATURE_COLUMNS = [
     "water_level_lag_12h", "water_level_lag_24h",
     "water_level_rolling_mean_6h", "water_level_rolling_max_6h", "water_level_rolling_std_6h",
     "water_level_rolling_mean_24h", "water_level_rolling_max_24h", "water_level_rolling_std_24h",
+    "discharge_cumecs", "discharge_delta_1h", "discharge_pct_change_1h",
+    "discharge_lag_1h", "discharge_lag_3h", "discharge_lag_6h", "discharge_lag_12h", "discharge_lag_24h",
+    "discharge_rolling_mean_6h", "discharge_rolling_max_6h", "discharge_rolling_std_6h",
+    "discharge_rolling_mean_24h", "discharge_rolling_max_24h", "discharge_rolling_std_24h",
     "flood_count_1y", "flood_count_3y", "flood_count_5y",
     "days_since_last_flood", "historical_max_severity", "historical_mean_severity",
     "historical_glof_count", "month", "day_of_year", "is_monsoon",
@@ -121,7 +126,7 @@ def train_model(train: pd.DataFrame, test: pd.DataFrame, feature_columns: list[s
         reg_lambda=1.0,
         scale_pos_weight=scale_pos_weight,
         tree_method="hist",
-        n_jobs=max(1, min(4, (os_cpu_count := __import__("os").cpu_count() or 1))),
+        n_jobs=max(1, min(4, os.cpu_count() or 1)),
         random_state=42,
     )
     model.fit(x_train, y_train, eval_set=[(x_test, y_test)], verbose=False)
