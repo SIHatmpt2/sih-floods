@@ -53,11 +53,9 @@ def _require(df: pd.DataFrame, columns: set[str], name: str) -> None:
 def _prepare_river(df: pd.DataFrame) -> pd.DataFrame:
     _require(df, {"station_id", "observed_at"}, "river data")
     keep = ["station_id", "observed_at", "station", "state", "district", "tehsil", "block", "village", "river", "basin", "latitude", "longitude", "water_level_m", "discharge_cumecs"]
-    keep = [c for c in keep if c in df.columns]
-    result = df[keep].copy()
+    result = df[[c for c in keep if c in df.columns]].copy()
     result["observed_at"] = pd.to_datetime(result["observed_at"], errors="coerce")
     result = result.dropna(subset=["station_id", "observed_at"])
-    # Upstream CWC processing already sorts/deduplicates. Do not repeat a 2M-row sort here.
     if result.duplicated(["station_id", "observed_at"]).any():
         result = result.drop_duplicates(["station_id", "observed_at"], keep="last")
     return result.reset_index(drop=True)
@@ -65,21 +63,26 @@ def _prepare_river(df: pd.DataFrame) -> pd.DataFrame:
 
 def _add_river_features(df: pd.DataFrame) -> pd.DataFrame:
     out = df.sort_values(["station_id", "observed_at"], kind="stable").reset_index(drop=True)
-    g = out.groupby("station_id", sort=False)
     for source, prefix in (("water_level_m", "water_level"), ("discharge_cumecs", "discharge")):
         if source not in out.columns:
             continue
-        out[source] = pd.to_numeric(out[source], errors="coerce")
-        prev = g[source].shift(1)
-        out[f"{prefix}_delta_1h"] = out[source] - prev
-        out[f"{prefix}_pct_change_1h"] = np.where(prev.ne(0), (out[source] - prev) / prev * 100.0, np.nan)
+        # CWC Parquets can contain pandas nullable values. Convert explicitly to a
+        # NumPy-backed float series before boolean arithmetic so pd.NA cannot leak
+        # into np.where and raise "boolean value of NA is ambiguous".
+        values = pd.to_numeric(out[source], errors="coerce").astype("float64")
+        grouped = values.groupby(out["station_id"], sort=False)
+        prev = grouped.shift(1)
+        out[source] = values
+        out[f"{prefix}_delta_1h"] = values - prev
+        pct = (values - prev).div(prev).mul(100.0)
+        out[f"{prefix}_pct_change_1h"] = pct.where(prev.notna() & prev.ne(0))
         for n in (1, 3, 6, 12, 24):
-            out[f"{prefix}_lag_{n}h"] = g[source].shift(n)
+            out[f"{prefix}_lag_{n}h"] = grouped.shift(n)
         for n in (6, 24):
-            r = g[source].rolling(n, min_periods=1)
-            out[f"{prefix}_rolling_mean_{n}h"] = r.mean().reset_index(level=0, drop=True)
-            out[f"{prefix}_rolling_max_{n}h"] = r.max().reset_index(level=0, drop=True)
-            out[f"{prefix}_rolling_std_{n}h"] = r.std().reset_index(level=0, drop=True)
+            rolling = grouped.rolling(n, min_periods=1)
+            out[f"{prefix}_rolling_mean_{n}h"] = rolling.mean().reset_index(level=0, drop=True)
+            out[f"{prefix}_rolling_max_{n}h"] = rolling.max().reset_index(level=0, drop=True)
+            out[f"{prefix}_rolling_std_{n}h"] = rolling.std().reset_index(level=0, drop=True)
     return out
 
 
@@ -98,10 +101,9 @@ def _aggregate_rainfall(df: pd.DataFrame) -> pd.DataFrame:
         for window, name in [("24h", "rainfall_24h"), ("48h", "rainfall_48h"), ("72h", "rainfall_72h"), ("7D", "rainfall_7d"), ("30D", "rainfall_30d")]:
             features[name] = group["rainfall_mm"].rolling(window, min_periods=1).sum()
         features["station_id"] = station_id
-        if "latitude" in group:
-            features["latitude"] = group["latitude"].iloc[0]
-        if "longitude" in group:
-            features["longitude"] = group["longitude"].iloc[0]
+        for coordinate in ("latitude", "longitude"):
+            if coordinate in group:
+                features[coordinate] = group[coordinate].iloc[0]
         pieces.append(features.reset_index())
     return pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame(columns=["station_id", "observed_at"] + RAIN_FEATURES + ["latitude", "longitude"])
 
@@ -149,8 +151,8 @@ def _add_historical_features(rows: pd.DataFrame, events: pd.DataFrame) -> pd.Dat
     e["event_date"] = pd.to_datetime(e["event_date"], errors="coerce")
     e = e.dropna(subset=["event_date", "location"]).sort_values("event_date", kind="stable")
     out = rows.copy()
-    for c in HISTORICAL_FEATURES:
-        out[c] = 0.0
+    for column in HISTORICAL_FEATURES:
+        out[column] = 0.0
     mapping = _event_map(out, e)
     for station_id, idx in out.groupby("station_id", sort=False).groups.items():
         matched = mapping.get(str(station_id))
@@ -291,11 +293,9 @@ def write_training_table(df: pd.DataFrame, output_path: str | Path = DEFAULT_OUT
 def _read_processed(root: Path, relative: str, name: str, columns: list[str] | None = None) -> pd.DataFrame:
     path = root / "processed" / relative
     if not path.exists():
-        raise FileNotFoundError(f"Missing processed {name}: {path}. Run its data-processing pipeline first.")
+        raise FileNotFoundError(f"Missing processed {name}: {path}. Run its corresponding data-processing pipeline first.")
     LOGGER.info("Reading %s: %s", name, path)
-    if columns is None:
-        return pd.read_parquet(path)
-    return pd.read_parquet(path, columns=columns)
+    return pd.read_parquet(path, columns=columns) if columns else pd.read_parquet(path)
 
 
 def load_processed_inputs(data_root: str | Path = DEFAULT_DATA_ROOT):
