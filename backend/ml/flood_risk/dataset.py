@@ -237,6 +237,54 @@ def _add_glacier_state(rows: pd.DataFrame, glaciers: pd.DataFrame) -> pd.DataFra
     return out.drop(columns=["_year", "year"], errors="ignore")
 
 
+def _add_rainfall_features(base: pd.DataFrame, rain: pd.DataFrame, mapping: pd.DataFrame) -> pd.DataFrame:
+    """Join rainfall features without materializing one giant merge_asof result.
+
+    The previous all-stations merge_asof creates a large temporary DataFrame
+    alongside the already-large river feature table. On a local Docker/CPU
+    setup that can exhaust the container and produce exit code 137. Joining
+    one mapped station at a time keeps the peak working set bounded.
+    """
+    out = base.copy()
+    for column in RAIN_FEATURES:
+        out[column] = np.nan
+
+    rain_by_station = {str(k): g for k, g in rain.groupby("station_id", sort=False)}
+    base_groups = out.groupby("station_id", sort=False).groups
+    for row in mapping.itertuples(index=False):
+        river_id = str(row.river_station_id)
+        rain_id = str(row.rain_station_id)
+        indices = base_groups.get(row.river_station_id)
+        rain_group = rain_by_station.get(rain_id)
+        if indices is None or rain_group is None:
+            continue
+
+        left = out.loc[indices, ["station_id", "observed_at"]].copy()
+        left["station_id"] = left["station_id"].astype("string")
+        right = rain_group[["station_id", "observed_at"] + RAIN_FEATURES].copy()
+        right["station_id"] = right["station_id"].astype("string")
+        left = left.sort_values("observed_at", kind="stable")
+        right = right.sort_values("observed_at", kind="stable")
+        joined = pd.merge_asof(
+            left,
+            right,
+            on="observed_at",
+            left_by="station_id",
+            right_by="station_id",
+            direction="backward",
+            tolerance=pd.Timedelta(hours=3),
+        )
+        target_index = joined.index
+        # joined preserves the sorted left-row index; restore those values by
+        # using the original left index carried explicitly below.
+        left_positions = left.index.to_numpy()
+        for column in RAIN_FEATURES:
+            out.loc[left_positions, column] = joined[column].to_numpy()
+        del left, right, joined
+
+    return out
+
+
 def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd.DataFrame, glaciers: pd.DataFrame | None = None, rainfall_max_distance_km: float = 50.0, horizon_hours: int = 72) -> pd.DataFrame:
     LOGGER.info("Preparing river observations")
     base = _prepare_river(river)
@@ -249,21 +297,10 @@ def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd
     mapping = _nearest_rainfall_station(base, rain, rainfall_max_distance_km)
     if mapping.empty:
         LOGGER.warning("No rainfall stations within %.1f km", rainfall_max_distance_km)
-        for c in RAIN_FEATURES:
-            base[c] = np.nan
     else:
-        rain = rain.merge(mapping, left_on="station_id", right_on="rain_station_id", how="inner")
         LOGGER.info("Joining rainfall: %d station mappings", len(mapping))
-        left = base.sort_values("observed_at", kind="stable")
-        right = rain.sort_values("observed_at", kind="stable")
-        # merge_asof requires the temporal key and each grouping key to have
-        # compatible dtypes. Keep station identifiers as pandas StringDtype on
-        # both sides of the join; source Parquets may otherwise mix string[python]
-        # and object depending on how they were written.
-        left["station_id"] = left["station_id"].astype("string")
-        right["river_station_id"] = right["river_station_id"].astype("string")
-        base = pd.merge_asof(left, right, on="observed_at", left_by="station_id", right_by="river_station_id", direction="backward", tolerance=pd.Timedelta("3h"), suffixes=("", "_rain"))
-        base = base.drop(columns=["river_station_id", "rain_station_id", "distance_km", "latitude_rain", "longitude_rain"], errors="ignore")
+        base = _add_rainfall_features(base, rain, mapping)
+    del rain
     LOGGER.info("Adding historical flood features")
     base = _add_historical_features(base, events)
     for c in GLACIER_FEATURES:
