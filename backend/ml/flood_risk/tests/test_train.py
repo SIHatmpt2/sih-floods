@@ -10,6 +10,7 @@ from ml.flood_risk.train import (
     load_training_rows,
     train_model,
     tune_threshold,
+    tune_threshold_event_aware,
 )
 
 
@@ -127,3 +128,30 @@ def test_evaluate_event_level_groups_positive_windows_and_counts_false_alarm_day
     assert metrics["false_alarm_rows"] == 1
     assert metrics["false_alarm_station_days"] == 1
     assert metrics["mean_lead_time_to_window_end_hours"] == 0.16666666666666666
+
+
+def test_tune_threshold_event_aware_prefers_fewer_false_alarm_days_at_target_recall():
+    class DummyModel:
+        def predict_proba(self, x):
+            return np.column_stack([1.0 - x["probability"].to_numpy(), x["probability"].to_numpy()])
+
+    validation = pd.DataFrame(
+        {
+            "station_id": ["a"] * 8 + ["b"] * 4,
+            "observed_at": pd.to_datetime(
+                [
+                    "2025-06-01 00:00", "2025-06-01 00:15", "2025-06-01 00:30", "2025-06-01 00:45",
+                    "2025-06-03 00:00", "2025-06-03 00:15", "2025-06-03 00:30", "2025-06-03 00:45",
+                    "2025-06-01 00:00", "2025-06-01 00:15", "2025-06-01 00:30", "2025-06-01 00:45",
+                ]
+            ),
+            TARGET_COLUMN: [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
+            "probability": [0.20, 0.19, 0.18, 0.17, 0.11, 0.10, 0.09, 0.08, 0.10, 0.02, 0.02, 0.02],
+        }
+    )
+
+    threshold = tune_threshold_event_aware(
+        DummyModel(), validation, ["probability"], target_event_recall=1.0
+    )
+
+    assert 0.10 < threshold <= 0.11
