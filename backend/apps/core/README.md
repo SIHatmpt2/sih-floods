@@ -1,0 +1,1 @@
+Core application combined from Parts 1-4.
