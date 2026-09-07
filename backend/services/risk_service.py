@@ -25,7 +25,14 @@ class RiskService:
         return payload
 
     def breakdown(self, latitude: float, longitude: float) -> dict:
-        return self.current(latitude, longitude)
+        result = self.current(latitude, longitude)
+        return {
+            "risk_score": result.get("risk_score"),
+            "risk_level": result.get("risk_level"),
+            "breakdown": result.get("breakdown", {}),
+            "data_quality": result.get("data_quality", {}),
+            "model_source": result.get("model_source", "baseline"),
+        }
 
     def refresh_zone(self, zone_id: int):
         from apps.risk.models import RiskZone
