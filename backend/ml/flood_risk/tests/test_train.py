@@ -1,9 +1,10 @@
 """Tests for the V1 XGBoost training helpers."""
 
+import numpy as np
 import pandas as pd
 
 from ml.flood_risk.dataset import TARGET_COLUMN
-from ml.flood_risk.train import chronological_split, load_training_rows
+from ml.flood_risk.train import chronological_split, load_training_rows, tune_threshold
 
 
 def test_chronological_split_preserves_time_order():
@@ -56,3 +57,24 @@ def test_load_training_rows_requires_core_rainfall(tmp_path):
     loaded = load_training_rows(path)
     assert len(loaded) == 2
     assert loaded[TARGET_COLUMN].tolist() == [0, 1]
+
+
+def test_tune_threshold_can_select_probabilities_below_one_percent():
+    class DummyModel:
+        def predict_proba(self, x):
+            return np.column_stack(
+                [
+                    1.0 - np.array([0.00002, 0.00004, 0.00006, 0.00008]),
+                    np.array([0.00002, 0.00004, 0.00006, 0.00008]),
+                ]
+            )
+
+    validation = pd.DataFrame(
+        {
+            "rainfall_24h": [1, 2, 3, 4],
+            TARGET_COLUMN: [0, 1, 0, 1],
+        }
+    )
+    threshold = tune_threshold(DummyModel(), validation, ["rainfall_24h"])
+
+    assert 0.00004 <= threshold <= 0.00006
