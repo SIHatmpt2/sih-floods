@@ -115,3 +115,9 @@ def test_select_best_alert_policy_result_minimizes_false_alarm_days_at_target_re
     best = select_best_alert_policy_result(results, target_event_recall=0.8)
     assert best["min_consecutive_alerts"] == 6
     assert best["alert_cooldown_hours"] == 48.0
+
+
+def test_alert_policy_uses_numeric_hours_without_timedelta_warnings():
+    evaluation = pd.DataFrame({"station_id": ["a"] * 4, "observed_at": pd.date_range("2025-01-01", periods=4, freq="15min"), "probability": [0.2, 0.2, 0.2, 0.2]})
+    alerted = apply_alert_policy(evaluation, threshold=0.1, min_consecutive_alerts=2, cooldown_hours=1.0)
+    assert alerted["alert"].tolist() == [False, True, False, False]
