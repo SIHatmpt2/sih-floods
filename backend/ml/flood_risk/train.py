@@ -102,17 +102,38 @@ def evaluate(model: XGBClassifier, x_test: pd.DataFrame, y_test: pd.Series, thre
 
 
 def tune_threshold(model: XGBClassifier, validation: pd.DataFrame, feature_columns: list[str]) -> float:
+    """Select an F1 threshold, including the tiny probabilities common in rare-event models."""
     probabilities = model.predict_proba(validation[feature_columns])[:, 1]
     y_validation = validation[TARGET_COLUMN]
+
+    # A fixed 0.01..0.99 grid can completely miss a useful threshold when a
+    # heavily imbalanced model assigns rare positives probabilities below 1%.
+    # Include both log-spaced low thresholds and the actual score values so the
+    # decision boundary is evaluated at the scale the model is using.
+    finite_probabilities = probabilities[np.isfinite(probabilities)]
+    if finite_probabilities.size == 0:
+        raise ValueError("Validation predictions contain no finite probabilities")
+    lower = max(float(np.min(finite_probabilities)) * 0.5, 1e-8)
+    upper = min(max(float(np.max(finite_probabilities)) * 1.05, 0.01), 1.0)
+    candidates = np.concatenate(
+        [
+            np.logspace(np.log10(lower), np.log10(upper), 300),
+            np.unique(finite_probabilities),
+            np.array([0.01, 0.5, 0.99]),
+        ]
+    )
+    candidates = np.unique(np.clip(candidates, 1e-8, 1.0))
+
     best_threshold = 0.5
     best_f1 = -1.0
-    for threshold in np.linspace(0.01, 0.99, 99):
+    for threshold in candidates:
         predictions = (probabilities >= threshold).astype(np.int8)
         score = f1_score(y_validation, predictions, zero_division=0)
         if score > best_f1:
             best_f1 = float(score)
             best_threshold = float(threshold)
-    LOGGER.info("Validation threshold tuning: threshold=%.2f f1=%.4f", best_threshold, best_f1)
+
+    LOGGER.info("Validation threshold tuning: threshold=%.8g f1=%.4f", best_threshold, best_f1)
     return best_threshold
 
 
