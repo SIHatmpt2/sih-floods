@@ -106,10 +106,6 @@ def tune_threshold(model: XGBClassifier, validation: pd.DataFrame, feature_colum
     probabilities = model.predict_proba(validation[feature_columns])[:, 1]
     y_validation = validation[TARGET_COLUMN]
 
-    # A fixed 0.01..0.99 grid can completely miss a useful threshold when a
-    # heavily imbalanced model assigns rare positives probabilities below 1%.
-    # Include both log-spaced low thresholds and the actual score values so the
-    # decision boundary is evaluated at the scale the model is using.
     finite_probabilities = probabilities[np.isfinite(probabilities)]
     if finite_probabilities.size == 0:
         raise ValueError("Validation predictions contain no finite probabilities")
@@ -126,12 +122,12 @@ def tune_threshold(model: XGBClassifier, validation: pd.DataFrame, feature_colum
 
     best_threshold = 0.5
     best_f1 = -1.0
-    for threshold in candidates:
-        predictions = (probabilities >= threshold).astype(np.int8)
+    for candidate in candidates:
+        predictions = (probabilities >= candidate).astype(np.int8)
         score = f1_score(y_validation, predictions, zero_division=0)
         if score > best_f1:
             best_f1 = float(score)
-            best_threshold = float(threshold)
+            best_threshold = float(candidate)
 
     LOGGER.info("Validation threshold tuning: threshold=%.8g f1=%.4f", best_threshold, best_f1)
     return best_threshold
@@ -145,8 +141,12 @@ def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: 
     negatives = int(len(y_train) - positives)
     if positives == 0:
         raise ValueError("Training split contains no positive flood examples")
-    scale_pos_weight = negatives / positives
-    LOGGER.info("Train rows=%d positives=%d negatives=%d scale_pos_weight=%.2f", len(train), positives, negatives, scale_pos_weight)
+
+    # Do not use scale_pos_weight when the output is intended to represent a
+    # probability. XGBoost documents that re-balancing changes the probability
+    # interpretation; max_delta_step provides a more stable update for severe
+    # imbalance without changing the class prior used by the logistic output.
+    LOGGER.info("Train rows=%d positives=%d negatives=%d positive_rate=%.6f", len(train), positives, negatives, positives / len(train))
 
     model = XGBClassifier(
         objective="binary:logistic",
@@ -159,7 +159,8 @@ def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: 
         colsample_bytree=0.8,
         reg_alpha=0.1,
         reg_lambda=1.0,
-        scale_pos_weight=scale_pos_weight,
+        scale_pos_weight=1,
+        max_delta_step=1,
         tree_method="hist",
         n_jobs=max(1, min(4, os.cpu_count() or 1)),
         random_state=42,
@@ -192,7 +193,7 @@ def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fracti
     model.save_model(model_path)
 
     metadata = {
-        "model_version": "v1",
+        "model_version": "v1.5",
         "algorithm": "XGBClassifier",
         "target": TARGET_COLUMN,
         "features": feature_columns,
@@ -223,7 +224,7 @@ def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fracti
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Train the V1 XGBoost flood-risk model")
+    parser = argparse.ArgumentParser(description="Train the V1.5 XGBoost flood-risk model")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
     parser.add_argument("--metadata", type=Path, default=DEFAULT_METADATA)
