@@ -43,4 +43,4 @@ jobs:
             -v "$GITHUB_WORKSPACE/backend:/app" \
             -w /app \
             sih-floods-backend-ci \
-            sh -c 'python -m pip install --no-cache-dir pytest && python manage.py check && python manage.py migrate --noinput && pytest apps/core apps/risk apps/weather -q'
+            sh -c 'python manage.py check && python manage.py migrate --noinput && python manage.py test apps.core apps.risk apps.weather'
