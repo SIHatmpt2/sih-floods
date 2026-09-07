@@ -4,7 +4,13 @@ import numpy as np
 import pandas as pd
 
 from ml.flood_risk.dataset import TARGET_COLUMN
-from ml.flood_risk.train import chronological_split, load_training_rows, train_model, tune_threshold
+from ml.flood_risk.train import (
+    chronological_split,
+    evaluate_event_level,
+    load_training_rows,
+    train_model,
+    tune_threshold,
+)
 
 
 def test_chronological_split_preserves_time_order():
@@ -92,3 +98,32 @@ def test_train_model_does_not_rebalance_probability_output():
 
     assert model.get_params()["scale_pos_weight"] == 1
     assert model.get_params()["max_delta_step"] == 1
+
+
+def test_evaluate_event_level_groups_positive_windows_and_counts_false_alarm_days():
+    df = pd.DataFrame(
+        {
+            "station_id": ["a", "a", "a", "a", "a", "b"],
+            "observed_at": pd.to_datetime(
+                [
+                    "2025-01-01 00:00",
+                    "2025-01-01 00:15",
+                    "2025-01-01 00:30",
+                    "2025-01-02 00:00",
+                    "2025-01-05 00:00",
+                    "2025-01-01 00:00",
+                ]
+            ),
+            TARGET_COLUMN: [1, 1, 1, 0, 1, 1],
+            "probability": [0.1, 0.2, 0.01, 0.9, 0.3, 0.4],
+        }
+    )
+
+    metrics = evaluate_event_level(df, threshold=0.05)
+
+    assert metrics["event_count"] == 3
+    assert metrics["detected_event_count"] == 3
+    assert metrics["event_recall"] == 1.0
+    assert metrics["false_alarm_rows"] == 1
+    assert metrics["false_alarm_station_days"] == 1
+    assert metrics["mean_lead_time_to_window_end_hours"] == 0.125
