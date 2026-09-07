@@ -1,4 +1,4 @@
-"""Train and evaluate the V1 XGBoost flood-risk model.
+"""Train and evaluate the V1.5 XGBoost flood-risk model.
 
 The training set is filtered to rows with complete core rainfall features.
 Evaluation is chronological: older observations are used for training,
@@ -33,6 +33,7 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_DATASET = Path("apps/risk/data/processed/training_v1.parquet")
 DEFAULT_MODEL = Path("models/flood_risk_v1.json")
 DEFAULT_METADATA = Path("models/flood_risk_v1.metadata.json")
+DEFAULT_WEIGHT_SWEEP = (0.25, 0.5, 1.0, 2.0, 4.0)
 
 FEATURE_COLUMNS = [
     "rainfall_24h", "rainfall_48h", "rainfall_72h", "rainfall_7d", "rainfall_30d",
@@ -107,15 +108,7 @@ def evaluate_event_level(
     threshold: float,
     event_gap_hours: float = 72.0,
 ) -> dict[str, object]:
-    """Evaluate flood detection by event rather than by 15-minute row.
-
-    A flood-labelled window is one event per station until there is a gap
-    longer than the target horizon. This prevents a single flood episode from
-    being counted hundreds of times simply because the source is sampled
-    every 15 minutes. Lead time is measured to the end of the labelled
-    positive window because the dataset does not carry a separate event-onset
-    timestamp.
-    """
+    """Evaluate flood detection by event rather than by 15-minute row."""
     required = {"station_id", "observed_at", TARGET_COLUMN, "probability"}
     missing = sorted(required.difference(evaluation.columns))
     if missing:
@@ -198,10 +191,9 @@ def _threshold_candidates(probabilities: np.ndarray) -> np.ndarray:
 
 
 def tune_threshold(model: XGBClassifier, validation: pd.DataFrame, feature_columns: list[str]) -> float:
-    """Select an F1 threshold, including the tiny probabilities common in rare-event models."""
+    """Select an F1 threshold, including tiny probabilities."""
     probabilities = model.predict_proba(validation[feature_columns])[:, 1]
     y_validation = validation[TARGET_COLUMN]
-
     candidates = _threshold_candidates(probabilities)
     best_threshold = 0.5
     best_f1 = -1.0
@@ -211,7 +203,6 @@ def tune_threshold(model: XGBClassifier, validation: pd.DataFrame, feature_colum
         if score > best_f1:
             best_f1 = float(score)
             best_threshold = float(candidate)
-
     LOGGER.info("Validation threshold tuning: threshold=%.8g f1=%.4f", best_threshold, best_f1)
     return best_threshold
 
@@ -223,14 +214,7 @@ def tune_threshold_event_aware(
     target_event_recall: float = 0.8,
     event_gap_hours: float = 72.0,
 ) -> float:
-    """Choose the highest threshold that still reaches the target event recall.
-
-    Candidate thresholds are the maximum model score within each positive
-    event. Therefore, among thresholds meeting the recall target, the chosen
-    threshold is as high as possible, which minimizes false alarms without
-    sacrificing the requested event-detection rate. The validation set alone
-    determines the threshold; the final test set is never used for tuning.
-    """
+    """Choose the highest threshold that reaches the target validation event recall."""
     if not 0 < target_event_recall <= 1:
         raise ValueError("target_event_recall must be in (0, 1]")
     if event_gap_hours <= 0:
@@ -250,7 +234,6 @@ def tune_threshold_event_aware(
     event_max_scores = positive.groupby(["station_id", "event_number"], sort=False)["probability"].max()
     event_count = int(len(event_max_scores))
     required_events = max(1, int(math.ceil(target_event_recall * event_count)))
-
     ranked = np.sort(event_max_scores.to_numpy(dtype=float))[::-1]
     threshold = float(ranked[required_events - 1])
     event_metrics = evaluate_event_level(evaluation, threshold, event_gap_hours)
@@ -265,10 +248,14 @@ def tune_threshold_event_aware(
     return threshold
 
 
-def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: list[str], weight_multiplier: float = 1.0) -> tuple[XGBClassifier, float]:
+def train_model(
+    train: pd.DataFrame,
+    validation: pd.DataFrame,
+    feature_columns: list[str],
+    weight_multiplier: float = 1.0,
+) -> tuple[XGBClassifier, float]:
     x_train = train[feature_columns]
     y_train = train[TARGET_COLUMN]
-
     positives = int(y_train.sum())
     negatives = int(len(y_train) - positives)
     if positives == 0:
@@ -304,13 +291,76 @@ def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: 
     return model, float(scale_pos_weight)
 
 
+def select_best_weight_result(results: list[dict[str, object]]) -> dict[str, object]:
+    """Select the class-weight experiment with the best validation PR-AUC."""
+    if not results:
+        raise ValueError("Weight sweep produced no results")
+    valid = [r for r in results if r.get("validation_pr_auc") is not None and np.isfinite(float(r["validation_pr_auc"]))]
+    if not valid:
+        raise ValueError("Weight sweep produced no finite validation PR-AUC values")
+    return max(valid, key=lambda r: (float(r["validation_pr_auc"]), -float(r["weight_multiplier"])))
+
+
+def run_weight_sweep(
+    train: pd.DataFrame,
+    validation: pd.DataFrame,
+    feature_columns: list[str],
+    weight_multipliers: tuple[float, ...],
+) -> tuple[XGBClassifier, float, list[dict[str, object]], float]:
+    """Train each requested class-weight multiplier and choose by validation PR-AUC."""
+    if not weight_multipliers:
+        raise ValueError("weight_multipliers must not be empty")
+    if any(multiplier <= 0 for multiplier in weight_multipliers):
+        raise ValueError("all weight multipliers must be greater than 0")
+
+    results: list[dict[str, object]] = []
+    best_model: XGBClassifier | None = None
+    best_weight = 0.0
+    best_pr_auc = -1.0
+
+    for multiplier in weight_multipliers:
+        model, scale_pos_weight = train_model(train, validation, feature_columns, multiplier)
+        probabilities = model.predict_proba(validation[feature_columns])[:, 1]
+        y_validation = validation[TARGET_COLUMN]
+        pr_auc = float(average_precision_score(y_validation, probabilities)) if y_validation.sum() else float("nan")
+        roc_auc = float(roc_auc_score(y_validation, probabilities)) if y_validation.nunique() > 1 else None
+        result = {
+            "weight_multiplier": float(multiplier),
+            "scale_pos_weight": float(scale_pos_weight),
+            "validation_pr_auc": pr_auc,
+            "validation_roc_auc": roc_auc,
+        }
+        results.append(result)
+        LOGGER.info(
+            "Weight experiment: multiplier=%.3f scale_pos_weight=%.4f validation_pr_auc=%.6f validation_roc_auc=%s",
+            multiplier,
+            scale_pos_weight,
+            pr_auc,
+            f"{roc_auc:.6f}" if roc_auc is not None else "n/a",
+        )
+        if pr_auc > best_pr_auc:
+            best_pr_auc = pr_auc
+            best_model = model
+            best_weight = float(scale_pos_weight)
+
+    best_result = select_best_weight_result(results)
+    LOGGER.info(
+        "Selected class weight: multiplier=%.3f scale_pos_weight=%.4f validation_pr_auc=%.6f",
+        float(best_result["weight_multiplier"]),
+        float(best_result["scale_pos_weight"]),
+        float(best_result["validation_pr_auc"]),
+    )
+    assert best_model is not None
+    return best_model, best_weight, results, float(best_result["weight_multiplier"])
+
+
 def train(
     dataset_path: Path,
     model_path: Path,
     metadata_path: Path,
     test_fraction: float,
     threshold: float,
-    weight_multiplier: float,
+    weight_multipliers: tuple[float, ...],
     target_event_recall: float = 0.8,
 ) -> dict[str, object]:
     df = load_training_rows(dataset_path)
@@ -322,10 +372,21 @@ def train(
     if not feature_columns:
         raise ValueError("No non-empty feature columns available")
 
-    LOGGER.info("Rows: total=%d train=%d validation=%d test=%d features=%d", len(df), len(train_df), len(validation_df), len(test_df), len(feature_columns))
-    LOGGER.info("Date split: train=%s -> %s, validation=%s -> %s, test=%s -> %s", train_df.observed_at.min(), train_df.observed_at.max(), validation_df.observed_at.min(), validation_df.observed_at.max(), test_df.observed_at.min(), test_df.observed_at.max())
+    LOGGER.info(
+        "Rows: total=%d train=%d validation=%d test=%d features=%d",
+        len(df), len(train_df), len(validation_df), len(test_df), len(feature_columns),
+    )
+    LOGGER.info(
+        "Date split: train=%s -> %s, validation=%s -> %s, test=%s -> %s",
+        train_df.observed_at.min(), train_df.observed_at.max(),
+        validation_df.observed_at.min(), validation_df.observed_at.max(),
+        test_df.observed_at.min(), test_df.observed_at.max(),
+    )
 
-    model, scale_pos_weight = train_model(train_df, validation_df, feature_columns, weight_multiplier)
+    model, scale_pos_weight, weight_sweep, selected_weight_multiplier = run_weight_sweep(
+        train_df, validation_df, feature_columns, weight_multipliers
+    )
+
     if threshold == 0.5:
         tuned_threshold = tune_threshold_event_aware(model, validation_df, feature_columns, target_event_recall)
         threshold_source = "validation_event_recall"
@@ -366,7 +427,8 @@ def train(
         "train_positive_count": int(train_df[TARGET_COLUMN].sum()),
         "train_negative_count": int((train_df[TARGET_COLUMN] == 0).sum()),
         "scale_pos_weight": scale_pos_weight,
-        "scale_pos_weight_multiplier": weight_multiplier,
+        "scale_pos_weight_multiplier": selected_weight_multiplier,
+        "weight_sweep": weight_sweep,
         "validation_positive_count": int(validation_df[TARGET_COLUMN].sum()),
         "test_positive_count": int(test_df[TARGET_COLUMN].sum()),
         "target_event_recall": target_event_recall,
@@ -384,6 +446,16 @@ def train(
     return metadata
 
 
+def _parse_weight_sweep(value: str) -> tuple[float, ...]:
+    try:
+        values = tuple(float(item.strip()) for item in value.split(",") if item.strip())
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("weight sweep must be comma-separated positive numbers") from exc
+    if not values or any(value <= 0 for value in values):
+        raise argparse.ArgumentTypeError("weight sweep must contain positive numbers")
+    return values
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Train the V1.5 XGBoost flood-risk model")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
@@ -392,10 +464,16 @@ def main() -> int:
     parser.add_argument("--test-fraction", type=float, default=0.2)
     parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument(
+        "--weight-sweep",
+        type=_parse_weight_sweep,
+        default=DEFAULT_WEIGHT_SWEEP,
+        help="Comma-separated multipliers applied to the training-split class ratio; best validation PR-AUC wins.",
+    )
+    parser.add_argument(
         "--weight-multiplier",
         type=float,
-        default=1.0,
-        help="Multiplier applied to the training-split negative/positive class ratio; 1.0 uses the full ratio.",
+        default=None,
+        help="Backward-compatible single class-weight multiplier; overrides --weight-sweep when supplied.",
     )
     parser.add_argument(
         "--target-event-recall",
@@ -405,13 +483,14 @@ def main() -> int:
     )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+    weight_multipliers = (args.weight_multiplier,) if args.weight_multiplier is not None else args.weight_sweep
     train(
         args.dataset,
         args.model,
         args.metadata,
         args.test_fraction,
         args.threshold,
-        args.weight_multiplier,
+        weight_multipliers,
         args.target_event_recall,
     )
     return 0
