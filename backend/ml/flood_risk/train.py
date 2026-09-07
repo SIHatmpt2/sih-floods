@@ -98,7 +98,7 @@ def apply_alert_policy(
     df = df.sort_values(["station_id", "observed_at"], kind="stable").reset_index(drop=False)
     df["raw_alert"] = df["probability"] >= threshold
     df["alert"] = False
-    cooldown = pd.Timedelta(hours=float(cooldown_hours))
+    cooldown_seconds = float(cooldown_hours) * 3600.0
     for _, group in df.groupby("station_id", sort=False):
         streak = 0
         last_alert_at = None
@@ -110,7 +110,7 @@ def apply_alert_policy(
             if streak < min_consecutive_alerts:
                 continue
             now = row["observed_at"]
-            if last_alert_at is None or now - last_alert_at >= cooldown:
+            if last_alert_at is None or (now - last_alert_at).total_seconds() >= cooldown_seconds:
                 df.at[index, "alert"] = True
                 last_alert_at = now
     return df.sort_values("index", kind="stable").drop(columns=["index", "raw_alert"]).reset_index(drop=True)
@@ -175,7 +175,8 @@ def evaluate_event_level(
         lead_times: list[float] = []
     else:
         gaps = positive.groupby("station_id")["observed_at"].diff()
-        event_break = gaps.isna() | (gaps > pd.Timedelta(hours=float(event_gap_hours)))
+        event_gap_seconds = float(event_gap_hours) * 3600.0
+        event_break = gaps.isna() | (gaps.dt.total_seconds() > event_gap_seconds)
         positive["event_number"] = event_break.groupby(positive["station_id"]).cumsum()
         grouped = positive.groupby(["station_id", "event_number"], sort=False)
         event_count = int(grouped.ngroups)
