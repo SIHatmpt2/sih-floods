@@ -1,11 +1,9 @@
-from django.contrib.gis.db import models
-from django.db import migrations
+from django.contrib.gis.db.models import PointField
+from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
     initial = True
-
-    dependencies = []
 
     operations = [
         migrations.CreateModel(
@@ -15,14 +13,12 @@ class Migration(migrations.Migration):
                 ("provider", models.CharField(max_length=32)),
                 ("station_id", models.CharField(max_length=128)),
                 ("name", models.CharField(max_length=255)),
-                ("location", models.PointField(geography=True, srid=4326)),
+                ("location", PointField(geography=True, srid=4326)),
                 ("state", models.CharField(blank=True, max_length=128)),
                 ("district", models.CharField(blank=True, max_length=128)),
                 ("active", models.BooleanField(default=True)),
             ],
-            options={
-                "unique_together": {("provider", "station_id")},
-            },
+            options={"unique_together": {("provider", "station_id")}},
         ),
         migrations.CreateModel(
             name="WeatherObservation",
@@ -34,12 +30,9 @@ class Migration(migrations.Migration):
                 ("humidity", models.FloatField(null=True)),
                 ("water_level_m", models.FloatField(null=True)),
                 ("discharge_m3s", models.FloatField(null=True)),
-                ("station", models.ForeignKey(on_delete=models.deletion.CASCADE, related_name="observations", to="weather.weatherstation")),
+                ("station", models.ForeignKey(on_delete=models.CASCADE, related_name="observations", to="weather.weatherstation")),
             ],
-            options={
-                "ordering": ["-timestamp"],
-                "unique_together": {("station", "timestamp")},
-            },
+            options={"ordering": ["-timestamp"], "unique_together": {("station", "timestamp")}},
         ),
         migrations.AddIndex(
             model_name="weatherstation",
