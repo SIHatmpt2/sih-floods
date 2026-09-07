@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from ml.flood_risk.dataset import TARGET_COLUMN
-from ml.flood_risk.train import chronological_split, load_training_rows, tune_threshold
+from ml.flood_risk.train import chronological_split, load_training_rows, train_model, tune_threshold
 
 
 def test_chronological_split_preserves_time_order():
@@ -78,3 +78,17 @@ def test_tune_threshold_can_select_probabilities_below_one_percent():
     threshold = tune_threshold(DummyModel(), validation, ["rainfall_24h"])
 
     assert 0.00004 <= threshold <= 0.00006
+
+
+def test_train_model_does_not_rebalance_probability_output():
+    train = pd.DataFrame(
+        {
+            "rainfall_24h": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0],
+            TARGET_COLUMN: [0, 0, 0, 0, 1, 1],
+        }
+    )
+    validation = train.copy()
+    model = train_model(train, validation, ["rainfall_24h"])
+
+    assert model.get_params()["scale_pos_weight"] == 1
+    assert model.get_params()["max_delta_step"] == 1
