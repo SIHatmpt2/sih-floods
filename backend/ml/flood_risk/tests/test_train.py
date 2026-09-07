@@ -8,6 +8,7 @@ from ml.flood_risk.train import (
     chronological_split,
     evaluate_event_level,
     load_training_rows,
+    select_best_weight_result,
     train_model,
     tune_threshold,
     tune_threshold_event_aware,
@@ -100,6 +101,20 @@ def test_train_model_does_not_rebalance_probability_output():
     assert weight == 1
     assert model.get_params()["scale_pos_weight"] == 1
     assert model.get_params()["max_delta_step"] == 1
+
+
+def test_select_best_weight_result_uses_validation_pr_auc():
+    results = [
+        {"weight_multiplier": 0.25, "validation_pr_auc": 0.031},
+        {"weight_multiplier": 0.5, "validation_pr_auc": 0.047},
+        {"weight_multiplier": 1.0, "validation_pr_auc": 0.044},
+        {"weight_multiplier": 2.0, "validation_pr_auc": 0.039},
+    ]
+
+    best = select_best_weight_result(results)
+
+    assert best["weight_multiplier"] == 0.5
+    assert best["validation_pr_auc"] == 0.047
 
 
 def test_evaluate_event_level_groups_positive_windows_and_counts_false_alarm_days():
