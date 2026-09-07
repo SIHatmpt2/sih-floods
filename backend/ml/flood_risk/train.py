@@ -26,9 +26,9 @@ DEFAULT_DATASET = Path("apps/risk/data/processed/training_v1.parquet")
 DEFAULT_MODEL = Path("models/flood_risk_v1.json")
 DEFAULT_METADATA = Path("models/flood_risk_v1.metadata.json")
 DEFAULT_WEIGHT_SWEEP = (0.25, 0.5, 1.0, 2.0, 4.0)
-DEFAULT_MIN_CONSECUTIVE_ALERTS = 3
-DEFAULT_ALERT_COOLDOWN_HOURS = 24.0
-DEFAULT_ALERT_POLICY_SWEEP = ((3, 24.0), (6, 24.0), (3, 48.0), (6, 48.0), (12, 48.0), (12, 72.0))
+DEFAULT_MIN_CONSECUTIVE_ALERTS = 6
+DEFAULT_ALERT_COOLDOWN_HOURS = 72.0
+DEFAULT_ALERT_POLICY_SWEEP = ((1, 24.0), (2, 24.0), (3, 24.0), (6, 24.0), (12, 24.0), (1, 48.0), (2, 48.0), (3, 48.0), (6, 48.0), (12, 48.0), (18, 48.0), (24, 48.0), (6, 72.0), (12, 72.0), (18, 72.0), (24, 72.0))
 
 FEATURE_COLUMNS = [
     "rainfall_24h", "rainfall_48h", "rainfall_72h", "rainfall_7d", "rainfall_30d",
