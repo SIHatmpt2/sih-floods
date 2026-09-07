@@ -101,6 +101,79 @@ def evaluate(model: XGBClassifier, x_test: pd.DataFrame, y_test: pd.Series, thre
     return metrics
 
 
+def evaluate_event_level(
+    evaluation: pd.DataFrame,
+    threshold: float,
+    event_gap_hours: float = 72.0,
+) -> dict[str, object]:
+    """Evaluate flood detection by event rather than by 15-minute row.
+
+    A flood-labelled window is one event per station until there is a gap
+    longer than the target horizon. This prevents a single flood episode from
+    being counted hundreds of times simply because the source is sampled
+    every 15 minutes. Lead time is measured to the end of the labelled
+    positive window because the dataset does not carry a separate event-onset
+    timestamp.
+    """
+    required = {"station_id", "observed_at", TARGET_COLUMN, "probability"}
+    missing = sorted(required.difference(evaluation.columns))
+    if missing:
+        raise ValueError(f"Event evaluation missing required columns: {missing}")
+    if event_gap_hours <= 0:
+        raise ValueError("event_gap_hours must be greater than 0")
+
+    df = evaluation[["station_id", "observed_at", TARGET_COLUMN, "probability"]].copy()
+    df["observed_at"] = pd.to_datetime(df["observed_at"], errors="coerce")
+    df["probability"] = pd.to_numeric(df["probability"], errors="coerce")
+    df = df.dropna(subset=["station_id", "observed_at", TARGET_COLUMN, "probability"])
+    df = df.sort_values(["station_id", "observed_at"], kind="stable").reset_index(drop=True)
+    df["alert"] = df["probability"] >= threshold
+
+    positive = df.loc[df[TARGET_COLUMN].eq(1)].copy()
+    if positive.empty:
+        event_count = 0
+        detected_event_count = 0
+        lead_times: list[float] = []
+    else:
+        gaps = positive.groupby("station_id")["observed_at"].diff()
+        event_break = gaps.isna() | (gaps > pd.Timedelta(hours=event_gap_hours))
+        positive["event_number"] = event_break.groupby(positive["station_id"]).cumsum()
+        grouped = positive.groupby(["station_id", "event_number"], sort=False)
+        event_count = int(grouped.ngroups)
+        detected_event_count = 0
+        lead_times = []
+        for _, event in grouped:
+            alerts = event.loc[event["alert"]]
+            if alerts.empty:
+                continue
+            detected_event_count += 1
+            first_alert = alerts["observed_at"].min()
+            window_end = event["observed_at"].max()
+            lead_times.append(max(0.0, (window_end - first_alert).total_seconds() / 3600.0))
+
+    false_alerts = df.loc[df[TARGET_COLUMN].eq(0) & df["alert"]].copy()
+    false_alarm_rows = int(len(false_alerts))
+    if false_alerts.empty:
+        false_alarm_station_days = 0
+    else:
+        false_alerts["day"] = false_alerts["observed_at"].dt.floor("D")
+        false_alarm_station_days = int(false_alerts[["station_id", "day"]].drop_duplicates().shape[0])
+
+    station_days = int(df[["station_id", df["observed_at"].dt.floor("D")]].drop_duplicates().shape[0])
+    return {
+        "event_gap_hours": float(event_gap_hours),
+        "event_count": event_count,
+        "detected_event_count": detected_event_count,
+        "event_recall": float(detected_event_count / event_count) if event_count else None,
+        "mean_lead_time_to_window_end_hours": float(np.mean(lead_times)) if lead_times else None,
+        "median_lead_time_to_window_end_hours": float(np.median(lead_times)) if lead_times else None,
+        "false_alarm_rows": false_alarm_rows,
+        "false_alarm_station_days": false_alarm_station_days,
+        "evaluated_station_days": station_days,
+        "false_alarms_per_station_day": float(false_alarm_rows / station_days) if station_days else None,
+    }
+
+
 def tune_threshold(model: XGBClassifier, validation: pd.DataFrame, feature_columns: list[str]) -> float:
     """Select an F1 threshold, including the tiny probabilities common in rare-event models."""
     probabilities = model.predict_proba(validation[feature_columns])[:, 1]
@@ -193,6 +266,11 @@ def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fracti
     metrics = evaluate(model, test_df[feature_columns], test_df[TARGET_COLUMN], final_threshold)
     validation_metrics = evaluate(model, validation_df[feature_columns], validation_df[TARGET_COLUMN], tuned_threshold)
 
+    test_evaluation = test_df[["station_id", "observed_at", TARGET_COLUMN]].copy()
+    test_evaluation["probability"] = model.predict_proba(test_df[feature_columns])[:, 1]
+    event_metrics = evaluate_event_level(test_evaluation, final_threshold)
+    LOGGER.info("Event-level metrics: %s", event_metrics)
+
     model_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     model.save_model(model_path)
@@ -223,6 +301,7 @@ def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fracti
         "threshold_source": "validation_f1" if threshold == 0.5 else "cli_override",
         "validation_metrics": validation_metrics,
         "metrics": metrics,
+        "event_metrics": event_metrics,
         "model_parameters": model.get_params(),
     }
     metadata_path.write_text(json.dumps(metadata, indent=2, default=str), encoding="utf-8")
