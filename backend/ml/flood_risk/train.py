@@ -217,9 +217,10 @@ def _threshold_candidates(probabilities: np.ndarray) -> np.ndarray:
     finite = probabilities[np.isfinite(probabilities)]
     if finite.size == 0:
         raise ValueError("Validation predictions contain no finite probabilities")
-    lower = max(float(np.min(finite)) * 0.5, 1e-8)
-    upper = min(max(float(np.max(finite)) * 1.05, 0.01), 1.0)
-    return np.unique(np.clip(np.concatenate([np.logspace(np.log10(lower), np.log10(upper), 300), np.unique(finite), np.array([0.01, 0.5, 0.99])]), 1e-8, 1.0))
+    # Evaluate only at observed score boundaries. A logarithmic grid can place
+    # arbitrary thresholds inside identical prediction regions and make the
+    # selected threshold depend on grid density rather than model scores.
+    return np.unique(np.clip(np.concatenate([np.unique(finite), np.array([0.01, 0.5, 0.99])]), 1e-8, 1.0))
 
 
 def tune_threshold(model: XGBClassifier, validation: pd.DataFrame, feature_columns: list[str]) -> float:
@@ -253,13 +254,16 @@ def tune_threshold_event_aware(
         if m["event_recall"] is not None and float(m["event_recall"]) >= target_event_recall:
             feasible.append((float(candidate), int(m["false_alarm_station_days"]), int(m["false_alarm_rows"])))
     if feasible:
-        threshold = max(feasible, key=lambda item: (item[0], -item[1], -item[2]))[0]
+        # First minimize false-alarm burden. When tied, choose the lowest
+        # threshold so the operating point keeps maximum score margin while
+        # still meeting the requested event recall.
+        threshold = min(feasible, key=lambda item: (item[1], item[2], item[0]))[0]
     else:
         fallback = []
         for candidate in candidates:
             m = evaluate_event_level(evaluation, float(candidate), event_gap_hours, min_consecutive_alerts, cooldown_hours)
             fallback.append((float(m["event_recall"] or 0.0), float(candidate), int(m["false_alarm_station_days"]), int(m["false_alarm_rows"])))
-        threshold = max(fallback, key=lambda item: (item[0], -item[2], -item[3], item[1]))[1]
+        threshold = max(fallback, key=lambda item: (item[0], -item[2], -item[3], -item[1]))[1]
     m = evaluate_event_level(evaluation, threshold, event_gap_hours, min_consecutive_alerts, cooldown_hours)
     LOGGER.info(
         "Event-aware threshold tuning: target_event_recall=%.3f threshold=%.8g event_recall=%.4f false_alarm_station_days=%d false_alarms_per_station_day=%.4f min_consecutive=%d cooldown_hours=%.1f",
