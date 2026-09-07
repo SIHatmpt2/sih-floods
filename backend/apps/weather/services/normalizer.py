@@ -41,9 +41,14 @@ def _number(value, field: str):
     if value in (None, ""):
         return None
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid {field}: {value!r}") from exc
+    if field in {"rainfall_mm", "humidity", "water_level_m", "discharge_m3s"} and number < 0:
+        raise ValueError(f"Invalid negative {field}: {number}")
+    if field == "humidity" and number > 100:
+        raise ValueError(f"Invalid humidity: {number}")
+    return number
 
 
 def _timestamp(value):
