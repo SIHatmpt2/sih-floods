@@ -95,8 +95,9 @@ def test_train_model_does_not_rebalance_probability_output():
         }
     )
     validation = train.copy()
-    model = train_model(train, validation, ["rainfall_24h"])
+    model, weight = train_model(train, validation, ["rainfall_24h"])
 
+    assert weight == 1
     assert model.get_params()["scale_pos_weight"] == 1
     assert model.get_params()["max_delta_step"] == 1
 
@@ -133,7 +134,8 @@ def test_evaluate_event_level_groups_positive_windows_and_counts_false_alarm_day
 def test_tune_threshold_event_aware_prefers_fewer_false_alarm_days_at_target_recall():
     class DummyModel:
         def predict_proba(self, x):
-            return np.column_stack([1.0 - x["probability"].to_numpy(), x["probability"].to_numpy()])
+            values = x["probability"].to_numpy()
+            return np.column_stack([1.0 - values, values])
 
     validation = pd.DataFrame(
         {
