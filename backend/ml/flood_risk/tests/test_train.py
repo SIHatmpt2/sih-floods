@@ -1,10 +1,11 @@
-"""Tests for the V1 XGBoost training helpers."""
+"""Tests for the V1.5 XGBoost training helpers."""
 
 import numpy as np
 import pandas as pd
 
 from ml.flood_risk.dataset import TARGET_COLUMN
 from ml.flood_risk.train import (
+    apply_alert_policy,
     chronological_split,
     evaluate_event_level,
     load_training_rows,
@@ -172,3 +173,33 @@ def test_tune_threshold_event_aware_prefers_fewer_false_alarm_days_at_target_rec
     )
 
     assert 0.10 < threshold <= 0.11
+
+
+def test_apply_alert_policy_requires_consecutive_predictions_and_applies_cooldown():
+    evaluation = pd.DataFrame(
+        {
+            "station_id": ["a"] * 8,
+            "observed_at": pd.date_range("2025-01-01", periods=8, freq="15min"),
+            "probability": [0.2, 0.2, 0.2, 0.2, 0.01, 0.2, 0.2, 0.2],
+        }
+    )
+
+    alerted = apply_alert_policy(
+        evaluation, threshold=0.1, min_consecutive_alerts=3, cooldown_hours=1.0
+    )
+
+    assert alerted["alert"].tolist() == [False, False, True, False, False, False, False, False]
+
+
+def test_apply_alert_policy_does_not_count_nonconsecutive_rows_as_confirmation():
+    evaluation = pd.DataFrame(
+        {
+            "station_id": ["a"] * 4,
+            "observed_at": pd.date_range("2025-01-01", periods=4, freq="15min"),
+            "probability": [0.2, 0.01, 0.2, 0.2],
+        }
+    )
+
+    alerted = apply_alert_policy(evaluation, threshold=0.1, min_consecutive_alerts=2, cooldown_hours=1.0)
+
+    assert alerted["alert"].tolist() == [False, False, False, True]
