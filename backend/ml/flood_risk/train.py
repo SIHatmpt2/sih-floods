@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import os
 from pathlib import Path
 
@@ -136,7 +137,7 @@ def evaluate_event_level(
         lead_times: list[float] = []
     else:
         gaps = positive.groupby("station_id")["observed_at"].diff()
-        event_break = gaps.isna() | (gaps > pd.Timedelta(hours=event_gap_hours))
+        event_break = gaps.isna() | (gaps > pd.Timedelta(hours=float(event_gap_hours)))
         positive["event_number"] = event_break.groupby(positive["station_id"]).cumsum()
         grouped = positive.groupby(["station_id", "event_number"], sort=False)
         event_count = int(grouped.ngroups)
@@ -175,25 +176,33 @@ def evaluate_event_level(
     }
 
 
+def _threshold_candidates(probabilities: np.ndarray) -> np.ndarray:
+    finite = probabilities[np.isfinite(probabilities)]
+    if finite.size == 0:
+        raise ValueError("Validation predictions contain no finite probabilities")
+    lower = max(float(np.min(finite)) * 0.5, 1e-8)
+    upper = min(max(float(np.max(finite)) * 1.05, 0.01), 1.0)
+    return np.unique(
+        np.clip(
+            np.concatenate(
+                [
+                    np.logspace(np.log10(lower), np.log10(upper), 300),
+                    np.unique(finite),
+                    np.array([0.01, 0.5, 0.99]),
+                ]
+            ),
+            1e-8,
+            1.0,
+        )
+    )
+
+
 def tune_threshold(model: XGBClassifier, validation: pd.DataFrame, feature_columns: list[str]) -> float:
     """Select an F1 threshold, including the tiny probabilities common in rare-event models."""
     probabilities = model.predict_proba(validation[feature_columns])[:, 1]
     y_validation = validation[TARGET_COLUMN]
 
-    finite_probabilities = probabilities[np.isfinite(probabilities)]
-    if finite_probabilities.size == 0:
-        raise ValueError("Validation predictions contain no finite probabilities")
-    lower = max(float(np.min(finite_probabilities)) * 0.5, 1e-8)
-    upper = min(max(float(np.max(finite_probabilities)) * 1.05, 0.01), 1.0)
-    candidates = np.concatenate(
-        [
-            np.logspace(np.log10(lower), np.log10(upper), 300),
-            np.unique(finite_probabilities),
-            np.array([0.01, 0.5, 0.99]),
-        ]
-    )
-    candidates = np.unique(np.clip(candidates, 1e-8, 1.0))
-
+    candidates = _threshold_candidates(probabilities)
     best_threshold = 0.5
     best_f1 = -1.0
     for candidate in candidates:
@@ -207,6 +216,55 @@ def tune_threshold(model: XGBClassifier, validation: pd.DataFrame, feature_colum
     return best_threshold
 
 
+def tune_threshold_event_aware(
+    model: XGBClassifier,
+    validation: pd.DataFrame,
+    feature_columns: list[str],
+    target_event_recall: float = 0.8,
+    event_gap_hours: float = 72.0,
+) -> float:
+    """Choose the highest threshold that still reaches the target event recall.
+
+    Candidate thresholds are the maximum model score within each positive
+    event. Therefore, among thresholds meeting the recall target, the chosen
+    threshold is as high as possible, which minimizes false alarms without
+    sacrificing the requested event-detection rate. The validation set alone
+    determines the threshold; the final test set is never used for tuning.
+    """
+    if not 0 < target_event_recall <= 1:
+        raise ValueError("target_event_recall must be in (0, 1]")
+    if event_gap_hours <= 0:
+        raise ValueError("event_gap_hours must be greater than 0")
+
+    probabilities = model.predict_proba(validation[feature_columns])[:, 1]
+    evaluation = validation[["station_id", "observed_at", TARGET_COLUMN]].copy()
+    evaluation["probability"] = probabilities
+    positive = evaluation.loc[evaluation[TARGET_COLUMN].eq(1)].copy()
+    if positive.empty:
+        raise ValueError("Validation split contains no positive flood events")
+
+    positive = positive.sort_values(["station_id", "observed_at"], kind="stable")
+    gaps = positive.groupby("station_id")["observed_at"].diff()
+    event_break = gaps.isna() | (gaps > pd.Timedelta(hours=float(event_gap_hours)))
+    positive["event_number"] = event_break.groupby(positive["station_id"]).cumsum()
+    event_max_scores = positive.groupby(["station_id", "event_number"], sort=False)["probability"].max()
+    event_count = int(len(event_max_scores))
+    required_events = max(1, int(math.ceil(target_event_recall * event_count)))
+
+    ranked = np.sort(event_max_scores.to_numpy(dtype=float))[::-1]
+    threshold = float(ranked[required_events - 1])
+    event_metrics = evaluate_event_level(evaluation, threshold, event_gap_hours)
+    LOGGER.info(
+        "Event-aware threshold tuning: target_event_recall=%.3f threshold=%.8g event_recall=%.4f false_alarm_station_days=%d false_alarms_per_station_day=%.4f",
+        target_event_recall,
+        threshold,
+        event_metrics["event_recall"],
+        event_metrics["false_alarm_station_days"],
+        event_metrics["false_alarms_per_station_day"],
+    )
+    return threshold
+
+
 def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: list[str], weight_multiplier: float = 1.0) -> tuple[XGBClassifier, float]:
     x_train = train[feature_columns]
     y_train = train[TARGET_COLUMN]
@@ -218,8 +276,6 @@ def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: 
     if weight_multiplier <= 0:
         raise ValueError("weight_multiplier must be greater than 0")
 
-    # Calculate the imbalance weight ONLY from the training split so future
-    # validation/test observations do not influence training.
     base_scale_pos_weight = negatives / positives
     scale_pos_weight = base_scale_pos_weight * weight_multiplier
     LOGGER.info(
@@ -248,7 +304,15 @@ def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: 
     return model, float(scale_pos_weight)
 
 
-def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fraction: float, threshold: float, weight_multiplier: float) -> dict[str, object]:
+def train(
+    dataset_path: Path,
+    model_path: Path,
+    metadata_path: Path,
+    test_fraction: float,
+    threshold: float,
+    weight_multiplier: float,
+    target_event_recall: float = 0.8,
+) -> dict[str, object]:
     df = load_training_rows(dataset_path)
     if df.empty:
         raise ValueError("No usable training rows after rainfall-complete filtering")
@@ -262,14 +326,20 @@ def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fracti
     LOGGER.info("Date split: train=%s -> %s, validation=%s -> %s, test=%s -> %s", train_df.observed_at.min(), train_df.observed_at.max(), validation_df.observed_at.min(), validation_df.observed_at.max(), test_df.observed_at.min(), test_df.observed_at.max())
 
     model, scale_pos_weight = train_model(train_df, validation_df, feature_columns, weight_multiplier)
-    tuned_threshold = tune_threshold(model, validation_df, feature_columns)
-    final_threshold = tuned_threshold if threshold == 0.5 else threshold
-    metrics = evaluate(model, test_df[feature_columns], test_df[TARGET_COLUMN], final_threshold)
+    if threshold == 0.5:
+        tuned_threshold = tune_threshold_event_aware(model, validation_df, feature_columns, target_event_recall)
+        threshold_source = "validation_event_recall"
+    else:
+        tuned_threshold = threshold
+        threshold_source = "cli_override"
+        LOGGER.info("Validation threshold tuning skipped: using CLI threshold=%.8g", threshold)
+
+    metrics = evaluate(model, test_df[feature_columns], test_df[TARGET_COLUMN], tuned_threshold)
     validation_metrics = evaluate(model, validation_df[feature_columns], validation_df[TARGET_COLUMN], tuned_threshold)
 
     test_evaluation = test_df[["station_id", "observed_at", TARGET_COLUMN]].copy()
     test_evaluation["probability"] = model.predict_proba(test_df[feature_columns])[:, 1]
-    event_metrics = evaluate_event_level(test_evaluation, final_threshold)
+    event_metrics = evaluate_event_level(test_evaluation, tuned_threshold)
     LOGGER.info("Event-level metrics: %s", event_metrics)
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
@@ -299,7 +369,9 @@ def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fracti
         "scale_pos_weight_multiplier": weight_multiplier,
         "validation_positive_count": int(validation_df[TARGET_COLUMN].sum()),
         "test_positive_count": int(test_df[TARGET_COLUMN].sum()),
-        "threshold_source": "validation_f1" if threshold == 0.5 else "cli_override",
+        "target_event_recall": target_event_recall,
+        "threshold_source": threshold_source,
+        "threshold": float(tuned_threshold),
         "validation_metrics": validation_metrics,
         "metrics": metrics,
         "event_metrics": event_metrics,
@@ -325,9 +397,23 @@ def main() -> int:
         default=1.0,
         help="Multiplier applied to the training-split negative/positive class ratio; 1.0 uses the full ratio.",
     )
+    parser.add_argument(
+        "--target-event-recall",
+        type=float,
+        default=0.8,
+        help="Minimum validation event recall used to select the highest alert threshold; default is 0.8.",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    train(args.dataset, args.model, args.metadata, args.test_fraction, args.threshold, args.weight_multiplier)
+    train(
+        args.dataset,
+        args.model,
+        args.metadata,
+        args.test_fraction,
+        args.threshold,
+        args.weight_multiplier,
+        args.target_event_recall,
+    )
     return 0
 
 
