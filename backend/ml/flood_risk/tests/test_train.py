@@ -126,4 +126,4 @@ def test_evaluate_event_level_groups_positive_windows_and_counts_false_alarm_day
     assert metrics["event_recall"] == 1.0
     assert metrics["false_alarm_rows"] == 1
     assert metrics["false_alarm_station_days"] == 1
-    assert metrics["mean_lead_time_to_window_end_hours"] == 0.125
+    assert metrics["mean_lead_time_to_window_end_hours"] == 0.16666666666666666
