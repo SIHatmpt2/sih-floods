@@ -3,14 +3,15 @@ from django.contrib.gis.db import models
 
 
 class UserLocation(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="saved_locations")
     name = models.CharField(max_length=120)
-    location = models.PointField(geography=True)
+    location = models.PointField(geography=True, srid=4326)
     is_primary = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class DashboardSnapshot(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="dashboard_snapshots")
     timestamp = models.DateTimeField(auto_now_add=True)
     weather_summary = models.JSONField(default=dict)
     risk_summary = models.JSONField(default=dict)
@@ -18,20 +19,10 @@ class DashboardSnapshot(models.Model):
 
 
 class NotificationRecord(models.Model):
-    CHANNELS = (
-        ("app", "App"),
-        ("sms", "SMS"),
-        ("email", "Email"),
-        ("push", "Push"),
-    )
-    STATUS = (
-        ("queued", "Queued"),
-        ("sent", "Sent"),
-        ("read", "Read"),
-        ("failed", "Failed"),
-    )
+    CHANNELS = (("app", "App"), ("sms", "SMS"), ("email", "Email"), ("push", "Push"))
+    STATUS = (("queued", "Queued"), ("sent", "Sent"), ("read", "Read"), ("failed", "Failed"))
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="notifications")
     title = models.CharField(max_length=255)
     message = models.TextField()
     channel = models.CharField(max_length=20, choices=CHANNELS, default="app")

@@ -3,8 +3,6 @@ from apps.core.models import NotificationRecord
 
 
 class NotificationService:
-    """Application-facing notification management; provider-independent."""
-
     def list(self, user, unread_only: bool = False):
         queryset = NotificationRecord.objects.filter(user=user).order_by("-created_at")
         if unread_only:

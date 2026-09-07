@@ -1,27 +1,21 @@
-from django.db.models import Avg, Count
-from django.contrib.gis.db.models.functions import Centroid
 from django.utils import timezone
-from ..models import RiskAssessment, HotspotSnapshot
+from ..models import HotspotSnapshot, RiskAssessment
 
 
 def refresh_hotspots(limit=50):
-    qs = (
-        RiskAssessment.objects.filter(score__gte=50)
-        .values("risk_level")
-        .annotate(score=Avg("score"), assessment_count=Count("id"), centroid=Centroid("location"))
-        .order_by("-score")[:limit]
-    )
+    rows = RiskAssessment.objects.filter(score__gte=50).order_by("-score", "-observed_at")[:limit]
     created = 0
-    for row in qs:
-        if row["centroid"] is None:
+    now = timezone.now()
+    for assessment in rows:
+        if assessment.location is None:
             continue
         HotspotSnapshot.objects.create(
-            snapshot_at=timezone.now(),
-            centroid=row["centroid"],
-            score=float(row["score"]),
-            risk_level=row["risk_level"],
-            assessment_count=row["assessment_count"],
-            metadata={"aggregation": "risk_level"},
+            snapshot_at=now,
+            centroid=assessment.location,
+            score=float(assessment.score),
+            risk_level=assessment.risk_level,
+            assessment_count=1,
+            metadata={"assessment_id": assessment.id, "aggregation": "top_assessments"},
         )
         created += 1
     return created

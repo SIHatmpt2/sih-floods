@@ -1,12 +1,16 @@
-from django.test import TestCase
 from unittest.mock import patch
+from django.test import SimpleTestCase
 from backend.services.core_service import CoreService
 
 
-class DashboardTests(TestCase):
-    @patch("backend.services.weather_service.WeatherService.current", return_value={"temperature_c": 28})
-    @patch("backend.services.risk_service.RiskService.assess", return_value={"risk_score": 78, "risk_level": "Severe"})
-    def test_dashboard_aggregation(self, *_):
-        result = CoreService().dashboard(None, 30.3165, 78.0322)
-        self.assertEqual(result["risk"]["risk_level"], "Severe")
-        self.assertEqual(result["summary"]["temperature"], 28)
+class CoreDashboardTests(SimpleTestCase):
+    @patch("apps.core.services.dashboard.set_dashboard")
+    @patch("apps.core.services.dashboard.get_dashboard", return_value=None)
+    @patch("apps.core.services.dashboard.NotificationService.list", return_value=[])
+    @patch("apps.core.services.dashboard.RiskService.current", return_value={"risk_score": 20, "risk_level": "low"})
+    @patch("apps.core.services.dashboard.WeatherService.current", return_value={"temperature_c": 30})
+    def test_dashboard_composes_weather_and_risk(self, weather, risk, notifications, get_cache, set_cache):
+        user = type("User", (), {"id": 1})()
+        payload = CoreService().dashboard(user, 20.0, 78.0)
+        self.assertEqual(payload["summary"]["risk_score"], 20)
+        self.assertEqual(payload["summary"]["temperature"], 30)

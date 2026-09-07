@@ -1,19 +1,20 @@
 from django.contrib.gis.geos import Point
+from django.db import transaction
 from apps.core.models import UserLocation
-from apps.risk.selectors import nearest_zone
+from apps.core.selectors import nearest_location
 
 
 class LocationService:
-    def save(self, user, name, latitude, longitude, is_primary=False):
-        point = Point(longitude, latitude, srid=4326)
-        if is_primary:
-            UserLocation.objects.filter(user=user, is_primary=True).update(is_primary=False)
-        return UserLocation.objects.create(
-            user=user,
-            name=name,
-            location=point,
-            is_primary=is_primary,
-        )
+    def save(self, user, name: str, latitude: float, longitude: float, is_primary=False):
+        with transaction.atomic():
+            if is_primary:
+                UserLocation.objects.filter(user=user).update(is_primary=False)
+            return UserLocation.objects.create(
+                user=user,
+                name=name,
+                location=Point(float(longitude), float(latitude), srid=4326),
+                is_primary=is_primary,
+            )
 
-    def nearest_risk_zone(self, latitude, longitude):
-        return nearest_zone(latitude, longitude)
+    def nearby(self, user, latitude: float, longitude: float):
+        return nearest_location(user, latitude, longitude)

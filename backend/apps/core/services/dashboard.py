@@ -5,7 +5,7 @@ from .notification import NotificationService
 
 
 class DashboardService:
-    """Composes Weather + Risk data for the application dashboard."""
+    """Compose Weather + Risk + Core notifications for the dashboard."""
 
     def __init__(self):
         self.weather = WeatherService()
@@ -17,19 +17,13 @@ class DashboardService:
         cached = get_dashboard(user_id, latitude, longitude)
         if cached is not None:
             return cached
-
         weather = self.weather.current(latitude, longitude)
-        risk = self.risk.assess(latitude, longitude)
+        risk = self.risk.current(latitude, longitude)
         payload = {
             "weather": weather,
             "risk": risk,
             "alerts": [
-                {
-                    "id": n.id,
-                    "title": n.title,
-                    "message": n.message,
-                    "status": n.status,
-                }
+                {"id": n.id, "title": n.title, "message": n.message, "status": n.status}
                 for n in self.notifications.list(user)[:10]
             ],
             "summary": {

@@ -1,33 +1,27 @@
 from datetime import timedelta
-from django.utils import timezone
 from django.contrib.gis.geos import Point
+from apps.weather.models import WeatherObservation
 
 
 def river_features(latitude, longitude):
-    try:
-        from backend.apps.weather.models import WeatherObservation
-    except ImportError:
-        return {"water_level_m": None, "discharge": None, "water_level_change": None}
-
-    field_names = {field.name for field in WeatherObservation._meta.get_fields() if hasattr(field, "name")}
-    required = {"location", "timestamp"}
-    if not required.issubset(field_names):
-        return {"water_level_m": None, "discharge": None, "water_level_change": None}
-
-    point = Point(float(longitude), float(latitude), srid=4326)
-    qs = WeatherObservation.objects.filter(location__distance_lte=(point, 75000)).order_by("-timestamp")
+    p = Point(float(longitude), float(latitude), srid=4326)
+    qs = WeatherObservation.objects.filter(
+        station__active=True,
+        station__location__distance_lte=(p, 75000),
+    ).order_by("-timestamp")
     latest = qs.first()
-    if latest is None:
-        return {"water_level_m": None, "discharge": None, "water_level_change": None}
-
+    if not latest:
+        return {"water_level_m": None, "discharge_m3s": None, "water_level_change": None}
     previous = qs.filter(
         timestamp__lt=latest.timestamp,
         timestamp__gte=latest.timestamp - timedelta(hours=24),
     ).first()
-    latest_level = getattr(latest, "water_level", None)
-    previous_level = getattr(previous, "water_level", None) if previous else None
     return {
-        "water_level_m": latest_level,
-        "discharge": getattr(latest, "discharge", None),
-        "water_level_change": latest_level - previous_level if latest_level is not None and previous_level is not None else None,
+        "water_level_m": latest.water_level_m,
+        "discharge_m3s": latest.discharge_m3s,
+        "water_level_change": (
+            latest.water_level_m - previous.water_level_m
+            if previous and latest.water_level_m is not None and previous.water_level_m is not None
+            else None
+        ),
     }
