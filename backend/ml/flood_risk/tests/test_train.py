@@ -23,6 +23,23 @@ def test_chronological_split_preserves_time_order():
     assert len(test) == 2
 
 
+def test_nested_chronological_split_keeps_final_test_future():
+    df = pd.DataFrame(
+        {
+            "station_id": ["a"] * 10,
+            "observed_at": pd.date_range("2025-01-01", periods=10, freq="h"),
+            TARGET_COLUMN: [0, 0, 1, 0, 0, 0, 1, 0, 0, 1],
+        }
+    )
+    train_val, test = chronological_split(df, test_fraction=0.2)
+    train, validation = chronological_split(train_val, test_fraction=0.25)
+    assert train.observed_at.max() < validation.observed_at.min()
+    assert validation.observed_at.max() < test.observed_at.min()
+    assert len(train) == 6
+    assert len(validation) == 2
+    assert len(test) == 2
+
+
 def test_load_training_rows_requires_core_rainfall(tmp_path):
     path = tmp_path / "training.parquet"
     df = pd.DataFrame(
