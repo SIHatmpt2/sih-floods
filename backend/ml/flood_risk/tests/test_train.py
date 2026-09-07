@@ -9,6 +9,7 @@ from ml.flood_risk.train import (
     chronological_split,
     evaluate_event_level,
     load_training_rows,
+    select_best_alert_policy_result,
     select_best_weight_result,
     train_model,
     tune_threshold,
@@ -200,3 +201,19 @@ def test_apply_alert_policy_does_not_count_nonconsecutive_rows_as_confirmation()
     alerted = apply_alert_policy(evaluation, threshold=0.1, min_consecutive_alerts=2, cooldown_hours=1.0)
 
     assert alerted["alert"].tolist() == [False, False, False, True]
+
+
+def test_select_best_alert_policy_result_minimizes_false_alarm_days_at_target_recall():
+    results = [
+        {"min_consecutive_alerts": 3, "alert_cooldown_hours": 24.0, "threshold": 0.01,
+         "event_recall": 0.9, "false_alarm_station_days": 10, "false_alarm_rows": 20},
+        {"min_consecutive_alerts": 6, "alert_cooldown_hours": 48.0, "threshold": 0.008,
+         "event_recall": 0.8, "false_alarm_station_days": 4, "false_alarm_rows": 9},
+        {"min_consecutive_alerts": 12, "alert_cooldown_hours": 72.0, "threshold": 0.02,
+         "event_recall": 0.7, "false_alarm_station_days": 1, "false_alarm_rows": 2},
+    ]
+
+    best = select_best_alert_policy_result(results, target_event_recall=0.8)
+
+    assert best["min_consecutive_alerts"] == 6
+    assert best["alert_cooldown_hours"] == 48.0
