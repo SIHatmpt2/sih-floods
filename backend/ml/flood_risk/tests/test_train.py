@@ -8,6 +8,7 @@ import pandas as pd
 from ml.flood_risk.dataset import TARGET_COLUMN
 from ml.flood_risk.train import (
     apply_alert_policy,
+    build_hard_negative_weights,
     chronological_split,
     evaluate_event_level,
     load_training_rows,
@@ -65,6 +66,14 @@ def test_train_model_uses_ratio_based_class_weight():
     assert weight == 2.0
     assert model.get_params()["scale_pos_weight"] == 2.0
     assert model.get_params()["max_delta_step"] == 1
+
+
+def test_build_hard_negative_weights_upweights_top_scoring_negatives():
+    train = pd.DataFrame({TARGET_COLUMN: [0, 0, 0, 0, 1, 1]})
+    probabilities = np.array([0.01, 0.80, 0.20, 0.70, 0.90, 0.95])
+    weights, count = build_hard_negative_weights(train, probabilities, fraction=0.5, multiplier=3.0)
+    assert count == 2
+    assert weights.tolist() == [1.0, 3.0, 1.0, 3.0, 1.0, 1.0]
 
 
 def test_select_best_weight_result_uses_validation_pr_auc():
