@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from django.contrib.gis.geos import Point
 from django.conf import settings
+from django.contrib.gis.geos import Point
 
 from ..models import WeatherObservation, WeatherStation
 from .client import WeatherProviderClient
@@ -25,7 +25,7 @@ class WeatherIngestionService:
 
     def refresh(self) -> dict:
         results = {}
-        for provider in getattr(settings, "WEATHER_PROVIDER_PRIORITY", ["imd", "cwc"]):
+        for provider in getattr(settings, "WEATHER_PROVIDER_PRIORITY", ["accuweather", "imd", "cwc"]):
             config = self.configured_providers().get(provider)
             if not config:
                 results[provider] = {"status": "not_configured", "records": 0}
@@ -43,16 +43,20 @@ class WeatherIngestionService:
     def store(self, rows: list[dict]) -> int:
         stored = 0
         for row in rows:
+            station_defaults = {
+                "name": row["station_name"],
+                "location": Point(row["longitude"], row["latitude"], srid=4326),
+                "active": True,
+            }
+            if row.get("state"):
+                station_defaults["state"] = row["state"]
+            if row.get("district"):
+                station_defaults["district"] = row["district"]
+
             station, _ = WeatherStation.objects.update_or_create(
                 provider=row["provider"],
                 station_id=row["station_id"],
-                defaults={
-                    "name": row["station_name"],
-                    "location": Point(row["longitude"], row["latitude"], srid=4326),
-                    "state": "",
-                    "district": "",
-                    "active": True,
-                },
+                defaults=station_defaults,
             )
             WeatherObservation.objects.update_or_create(
                 station=station,
