@@ -133,7 +133,7 @@ def tune_threshold(model: XGBClassifier, validation: pd.DataFrame, feature_colum
     return best_threshold
 
 
-def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: list[str]) -> XGBClassifier:
+def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: list[str], weight_multiplier: float = 1.0) -> tuple[XGBClassifier, float]:
     x_train = train[feature_columns]
     y_train = train[TARGET_COLUMN]
 
@@ -141,12 +141,17 @@ def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: 
     negatives = int(len(y_train) - positives)
     if positives == 0:
         raise ValueError("Training split contains no positive flood examples")
+    if weight_multiplier <= 0:
+        raise ValueError("weight_multiplier must be greater than 0")
 
-    # Do not use scale_pos_weight when the output is intended to represent a
-    # probability. XGBoost documents that re-balancing changes the probability
-    # interpretation; max_delta_step provides a more stable update for severe
-    # imbalance without changing the class prior used by the logistic output.
-    LOGGER.info("Train rows=%d positives=%d negatives=%d positive_rate=%.6f", len(train), positives, negatives, positives / len(train))
+    # Calculate the imbalance weight ONLY from the training split so future
+    # validation/test observations do not influence training.
+    base_scale_pos_weight = negatives / positives
+    scale_pos_weight = base_scale_pos_weight * weight_multiplier
+    LOGGER.info(
+        "Train rows=%d positives=%d negatives=%d positive_rate=%.6f scale_pos_weight=%.4f (base=%.4f multiplier=%.3f)",
+        len(train), positives, negatives, positives / len(train), scale_pos_weight, base_scale_pos_weight, weight_multiplier,
+    )
 
     model = XGBClassifier(
         objective="binary:logistic",
@@ -159,17 +164,17 @@ def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: 
         colsample_bytree=0.8,
         reg_alpha=0.1,
         reg_lambda=1.0,
-        scale_pos_weight=1,
+        scale_pos_weight=scale_pos_weight,
         max_delta_step=1,
         tree_method="hist",
         n_jobs=max(1, min(4, os.cpu_count() or 1)),
         random_state=42,
     )
     model.fit(x_train, y_train, eval_set=[(validation[feature_columns], validation[TARGET_COLUMN])], verbose=False)
-    return model
+    return model, float(scale_pos_weight)
 
 
-def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fraction: float, threshold: float) -> dict[str, object]:
+def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fraction: float, threshold: float, weight_multiplier: float) -> dict[str, object]:
     df = load_training_rows(dataset_path)
     if df.empty:
         raise ValueError("No usable training rows after rainfall-complete filtering")
@@ -182,7 +187,7 @@ def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fracti
     LOGGER.info("Rows: total=%d train=%d validation=%d test=%d features=%d", len(df), len(train_df), len(validation_df), len(test_df), len(feature_columns))
     LOGGER.info("Date split: train=%s -> %s, validation=%s -> %s, test=%s -> %s", train_df.observed_at.min(), train_df.observed_at.max(), validation_df.observed_at.min(), validation_df.observed_at.max(), test_df.observed_at.min(), test_df.observed_at.max())
 
-    model = train_model(train_df, validation_df, feature_columns)
+    model, scale_pos_weight = train_model(train_df, validation_df, feature_columns, weight_multiplier)
     tuned_threshold = tune_threshold(model, validation_df, feature_columns)
     final_threshold = tuned_threshold if threshold == 0.5 else threshold
     metrics = evaluate(model, test_df[feature_columns], test_df[TARGET_COLUMN], final_threshold)
@@ -209,6 +214,10 @@ def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fracti
         "validation_date_max": str(validation_df.observed_at.max()),
         "test_date_min": str(test_df.observed_at.min()),
         "test_date_max": str(test_df.observed_at.max()),
+        "train_positive_count": int(train_df[TARGET_COLUMN].sum()),
+        "train_negative_count": int((train_df[TARGET_COLUMN] == 0).sum()),
+        "scale_pos_weight": scale_pos_weight,
+        "scale_pos_weight_multiplier": weight_multiplier,
         "validation_positive_count": int(validation_df[TARGET_COLUMN].sum()),
         "test_positive_count": int(test_df[TARGET_COLUMN].sum()),
         "threshold_source": "validation_f1" if threshold == 0.5 else "cli_override",
@@ -230,9 +239,15 @@ def main() -> int:
     parser.add_argument("--metadata", type=Path, default=DEFAULT_METADATA)
     parser.add_argument("--test-fraction", type=float, default=0.2)
     parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--weight-multiplier",
+        type=float,
+        default=1.0,
+        help="Multiplier applied to the training-split negative/positive class ratio; 1.0 uses the full ratio.",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
-    train(args.dataset, args.model, args.metadata, args.test_fraction, args.threshold)
+    train(args.dataset, args.model, args.metadata, args.test_fraction, args.threshold, args.weight_multiplier)
     return 0
 
 
