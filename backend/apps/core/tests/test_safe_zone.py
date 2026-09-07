@@ -7,7 +7,7 @@ from apps.core.services.safe_zone import SafeZoneService
 
 
 class SafeZoneServiceTests(SimpleTestCase):
-    @patch("apps.core.services.safe_zone.nearest_safe_zone")
+    @patch("apps.core.services.safe_zone.risk_selectors.nearest_safe_zone")
     def test_nearest_safe_zone_delegates_to_risk_selector(self, selector):
         selector.return_value = SimpleNamespace(
             id=7,
