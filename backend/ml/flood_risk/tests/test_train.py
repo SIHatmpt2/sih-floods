@@ -124,12 +124,8 @@ def test_evaluate_event_level_groups_positive_windows_and_counts_false_alarm_day
             "station_id": ["a", "a", "a", "a", "a", "b"],
             "observed_at": pd.to_datetime(
                 [
-                    "2025-01-01 00:00",
-                    "2025-01-01 00:15",
-                    "2025-01-01 00:30",
-                    "2025-01-02 00:00",
-                    "2025-01-05 00:00",
-                    "2025-01-01 00:00",
+                    "2025-01-01 00:00", "2025-01-01 00:15", "2025-01-01 00:30", "2025-01-02 00:00",
+                    "2025-01-05 00:00", "2025-01-01 00:00",
                 ]
             ),
             TARGET_COLUMN: [1, 1, 1, 0, 1, 1],
@@ -137,7 +133,7 @@ def test_evaluate_event_level_groups_positive_windows_and_counts_false_alarm_day
         }
     )
 
-    metrics = evaluate_event_level(df, threshold=0.05)
+    metrics = evaluate_event_level(df, threshold=0.05, min_consecutive_alerts=1, cooldown_hours=0)
 
     assert metrics["event_count"] == 3
     assert metrics["detected_event_count"] == 3
@@ -169,7 +165,8 @@ def test_tune_threshold_event_aware_prefers_fewer_false_alarm_days_at_target_rec
     )
 
     threshold = tune_threshold_event_aware(
-        DummyModel(), validation, ["probability"], target_event_recall=1.0
+        DummyModel(), validation, ["probability"], target_event_recall=1.0,
+        min_consecutive_alerts=1, cooldown_hours=0,
     )
 
     assert 0.10 < threshold <= 0.11
@@ -185,7 +182,7 @@ def test_apply_alert_policy_requires_consecutive_predictions_and_applies_cooldow
     )
 
     alerted = apply_alert_policy(
-        evaluation, threshold=0.1, min_consecutive_alerts=3, cooldown_hours=1.0
+        evaluation, threshold=0.1, min_consecutive_alerts=3, cooldown_hours=2.0
     )
 
     assert alerted["alert"].tolist() == [False, False, True, False, False, False, False, False]
