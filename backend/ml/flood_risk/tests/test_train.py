@@ -1,5 +1,7 @@
 """Tests for the V1.5 XGBoost training helpers."""
 
+import warnings
+
 import numpy as np
 import pandas as pd
 
@@ -119,5 +121,10 @@ def test_select_best_alert_policy_result_minimizes_false_alarm_days_at_target_re
 
 def test_alert_policy_uses_numeric_hours_without_timedelta_warnings():
     evaluation = pd.DataFrame({"station_id": ["a"] * 4, "observed_at": pd.date_range("2025-01-01", periods=4, freq="15min"), "probability": [0.2, 0.2, 0.2, 0.2]})
-    alerted = apply_alert_policy(evaluation, threshold=0.1, min_consecutive_alerts=2, cooldown_hours=1.0)
+    event_evaluation = evaluation.assign(**{TARGET_COLUMN: [1, 1, 1, 1]})
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        alerted = apply_alert_policy(evaluation, threshold=0.1, min_consecutive_alerts=2, cooldown_hours=1.0)
+        metrics = evaluate_event_level(event_evaluation, threshold=0.1, min_consecutive_alerts=2, cooldown_hours=1.0)
     assert alerted["alert"].tolist() == [False, True, False, False]
+    assert metrics["event_count"] == 1
