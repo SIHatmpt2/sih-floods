@@ -1,8 +1,9 @@
 """Train and evaluate the V1 XGBoost flood-risk model.
 
 The training set is filtered to rows with complete core rainfall features.
-Evaluation is chronological: older observations are used for training and
-later observations are held out for validation/test-style evaluation.
+Evaluation is chronological: older observations are used for training,
+a later slice tunes the decision threshold, and the newest slice is held out
+as the untouched final test set.
 """
 from __future__ import annotations
 
@@ -88,7 +89,7 @@ def evaluate(model: XGBClassifier, x_test: pd.DataFrame, y_test: pd.Series, thre
     predictions = (probabilities >= threshold).astype(np.int8)
     tn, fp, fn, tp = confusion_matrix(y_test, predictions, labels=[0, 1]).ravel()
     metrics: dict[str, object] = {
-        "threshold": threshold,
+        "threshold": float(threshold),
         "roc_auc": float(roc_auc_score(y_test, probabilities)) if y_test.nunique() > 1 else None,
         "pr_auc": float(average_precision_score(y_test, probabilities)) if y_test.sum() else None,
         "precision": float(precision_score(y_test, predictions, zero_division=0)),
@@ -100,11 +101,24 @@ def evaluate(model: XGBClassifier, x_test: pd.DataFrame, y_test: pd.Series, thre
     return metrics
 
 
-def train_model(train: pd.DataFrame, test: pd.DataFrame, feature_columns: list[str]) -> XGBClassifier:
+def tune_threshold(model: XGBClassifier, validation: pd.DataFrame, feature_columns: list[str]) -> float:
+    probabilities = model.predict_proba(validation[feature_columns])[:, 1]
+    y_validation = validation[TARGET_COLUMN]
+    best_threshold = 0.5
+    best_f1 = -1.0
+    for threshold in np.linspace(0.01, 0.99, 99):
+        predictions = (probabilities >= threshold).astype(np.int8)
+        score = f1_score(y_validation, predictions, zero_division=0)
+        if score > best_f1:
+            best_f1 = float(score)
+            best_threshold = float(threshold)
+    LOGGER.info("Validation threshold tuning: threshold=%.2f f1=%.4f", best_threshold, best_f1)
+    return best_threshold
+
+
+def train_model(train: pd.DataFrame, validation: pd.DataFrame, feature_columns: list[str]) -> XGBClassifier:
     x_train = train[feature_columns]
     y_train = train[TARGET_COLUMN]
-    x_test = test[feature_columns]
-    y_test = test[TARGET_COLUMN]
 
     positives = int(y_train.sum())
     negatives = int(len(y_train) - positives)
@@ -129,7 +143,7 @@ def train_model(train: pd.DataFrame, test: pd.DataFrame, feature_columns: list[s
         n_jobs=max(1, min(4, os.cpu_count() or 1)),
         random_state=42,
     )
-    model.fit(x_train, y_train, eval_set=[(x_test, y_test)], verbose=False)
+    model.fit(x_train, y_train, eval_set=[(validation[feature_columns], validation[TARGET_COLUMN])], verbose=False)
     return model
 
 
@@ -137,16 +151,20 @@ def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fracti
     df = load_training_rows(dataset_path)
     if df.empty:
         raise ValueError("No usable training rows after rainfall-complete filtering")
-    train_df, test_df = chronological_split(df, test_fraction)
+    train_val_df, test_df = chronological_split(df, test_fraction)
+    train_df, validation_df = chronological_split(train_val_df, test_fraction=0.25)
     feature_columns = [c for c in FEATURE_COLUMNS if c in df.columns and df[c].notna().any()]
     if not feature_columns:
         raise ValueError("No non-empty feature columns available")
 
-    LOGGER.info("Rows: total=%d train=%d test=%d features=%d", len(df), len(train_df), len(test_df), len(feature_columns))
-    LOGGER.info("Date split: train=%s -> %s, test=%s -> %s", train_df.observed_at.min(), train_df.observed_at.max(), test_df.observed_at.min(), test_df.observed_at.max())
+    LOGGER.info("Rows: total=%d train=%d validation=%d test=%d features=%d", len(df), len(train_df), len(validation_df), len(test_df), len(feature_columns))
+    LOGGER.info("Date split: train=%s -> %s, validation=%s -> %s, test=%s -> %s", train_df.observed_at.min(), train_df.observed_at.max(), validation_df.observed_at.min(), validation_df.observed_at.max(), test_df.observed_at.min(), test_df.observed_at.max())
 
-    model = train_model(train_df, test_df, feature_columns)
-    metrics = evaluate(model, test_df[feature_columns], test_df[TARGET_COLUMN], threshold)
+    model = train_model(train_df, validation_df, feature_columns)
+    tuned_threshold = tune_threshold(model, validation_df, feature_columns)
+    final_threshold = tuned_threshold if threshold == 0.5 else threshold
+    metrics = evaluate(model, test_df[feature_columns], test_df[TARGET_COLUMN], final_threshold)
+    validation_metrics = evaluate(model, validation_df[feature_columns], validation_df[TARGET_COLUMN], tuned_threshold)
 
     model_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
@@ -161,14 +179,20 @@ def train(dataset_path: Path, model_path: Path, metadata_path: Path, test_fracti
         "dataset": str(dataset_path),
         "rows_total": int(len(df)),
         "rows_train": int(len(train_df)),
+        "rows_validation": int(len(validation_df)),
         "rows_test": int(len(test_df)),
         "train_date_min": str(train_df.observed_at.min()),
         "train_date_max": str(train_df.observed_at.max()),
+        "validation_date_min": str(validation_df.observed_at.min()),
+        "validation_date_max": str(validation_df.observed_at.max()),
         "test_date_min": str(test_df.observed_at.min()),
         "test_date_max": str(test_df.observed_at.max()),
+        "validation_positive_count": int(validation_df[TARGET_COLUMN].sum()),
         "test_positive_count": int(test_df[TARGET_COLUMN].sum()),
-        "model_parameters": model.get_params(),
+        "threshold_source": "validation_f1" if threshold == 0.5 else "cli_override",
+        "validation_metrics": validation_metrics,
         "metrics": metrics,
+        "model_parameters": model.get_params(),
     }
     metadata_path.write_text(json.dumps(metadata, indent=2, default=str), encoding="utf-8")
 
