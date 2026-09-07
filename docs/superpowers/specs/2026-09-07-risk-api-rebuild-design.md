@@ -35,77 +35,42 @@ Risk is an application/domain boundary. It must not know provider-specific API d
 ## Domain model
 
 ### FloodEvent
-Required fields from the guide: `id`, `name`, `event_date`, `district`, `location`, `severity`, `rainfall_mm`, `water_level_m`, `source`. `location` is a PostGIS geometry; point or polygon is accepted at the domain boundary, but one concrete model field will be used consistently in the implementation. Records retain source provenance and timestamps for auditability.
+Required fields from the guide: `id`, `name`, `event_date`, `district`, `location`, `severity`, `rainfall_mm`, `water_level_m`, `source`. `location` is a PostGIS geometry; the rebuild uses a consistent `PointField`.
 
 ### RiskZone
-A spatial polygon representing the current derived risk footprint. It stores a stable name/identifier, geometry, active flag, latest score and latest level, plus timestamps. Dynamic zones are recalculated by Celery rather than on every list request.
+A spatial polygon representing the current derived risk footprint. It stores a stable code, geometry, active flag, latest score and latest level, plus timestamps and the latest feature snapshot.
 
 ### RiskAssessment
 A timestamped evaluation for a location/zone. It stores total score, level, explanation/breakdown JSON, feature values, model/source metadata, and geometry. It provides historical risk state without overwriting prior assessments.
 
-### RiskAlert
-A generated alert tied to a location or risk zone, with severity, title/message, status, trigger score, created/read/resolved timestamps. Alerts are produced by background risk refreshes and are queryable through the API.
-
-### Optional later-domain records
-GLOFEvent, GlacialLake, SatelliteObservation, exposure/construction entities remain out of the first rebuild unless existing project data requires them. The guide explicitly recommends starting with the minimum useful models and expanding when a feature requires it.
+### RiskAlert / HotspotSnapshot
+Alerts persist threshold crossings for current risk states. Hotspot snapshots persist derived high-risk aggregations for map/analytics consumers.
 
 ## Service boundaries
 
-`backend/services/risk_service.py` is the application-facing facade. It exposes stable operations such as:
+`backend/services/risk_service.py` is the application-facing facade. Focused services under `backend/apps/risk/services/` own normalization, feature extraction, scoring, caching, alerts, hotspots, analytics, and pretrained-model inference.
 
-- `get_current_risk(latitude, longitude)`
-- `get_risk_breakdown(latitude, longitude)`
-- `list_high_risk_zones(...)`
-- `refresh_zone(zone_id)`
-
-`backend/apps/risk/services/` contains focused domain services:
-
-- `risk_engine.py`: score calculation, normalization and level mapping.
-- `rainfall.py`: rainfall-window features obtained from weather observations/service layer.
-- `river.py`: discharge/water-level features and change statistics when observation data is available.
-- `terrain.py`: interface for terrain-derived values; safe defaults when no terrain raster is configured.
-- `historical.py`: event-count/severity/distance features from `FloodEvent`.
-- `normalizer.py`: common bounds, units and score normalization.
-- `zone_manager.py`: zone selection/recalculation.
-- `cache.py`: Redis/Django-cache wrappers for current risk results.
-- `alert_engine.py`: threshold transitions and alert creation.
-- `hotspot.py`: high-risk spatial aggregation.
-- `analytics.py`: distributions/time-window summaries.
-- `notification.py`: delivery abstraction; persistence is separate from any external channel.
-
-The risk app may query its own models and use `WeatherService`/weather app interfaces, but it must not call AccuWeather, IMD, CWC, or state APIs directly.
+Risk may query its own models and existing Weather interfaces, but it must not call AccuWeather, IMD, CWC, or state APIs directly.
 
 ## Baseline scoring
 
-A deterministic baseline keeps the API useful before the XGBoost artifact is available:
+A deterministic baseline keeps the API useful before an XGBoost artifact is available:
 
 - rainfall: 40%
 - river: 30%
 - terrain: 20%
 - historical: 10%
 
-The final score is clamped to 0–100. Risk levels are mapped as:
+Final score is clamped to 0–100. Levels:
 
 - 0–24: Low
 - 25–49: Moderate
 - 50–74: High
 - 75–100: Severe
 
-The breakdown is returned to clients so the frontend can explain the score. Model-backed inference replaces the score only when an explicitly configured pretrained artifact is loadable and its feature contract is satisfied.
-
-## Data flow
-
-1. `import_floods` validates and imports historical events into PostGIS.
-2. Weather/river ingestion remains owned by the weather subsystem and writes normalized observations.
-3. A risk Celery task selects relevant observations using PostGIS spatial queries and computes rainfall/river/historical/terrain features.
-4. Risk engine produces baseline or pretrained-model score.
-5. RiskAssessment/RiskZone state is persisted.
-6. Alert engine compares current state with thresholds and records alerts.
-7. REST views read persisted/current service results; they do not run heavy ETL or ML training.
+When a feature source is unavailable, the result explicitly reports missing components rather than fabricating values.
 
 ## API contract
-
-Initial endpoints:
 
 - `GET /api/risk/events/`
 - `GET /api/risk/events/<id>/`
@@ -120,42 +85,16 @@ Initial endpoints:
 - `GET /api/risk/hotspots/`
 - `GET /api/risk/analytics/`
 
-Coordinates are validated at the serializer layer. Spatial filtering and nearest/radius lookup are implemented in selectors using PostGIS functions. Query parameters never become raw SQL fragments.
+Coordinates and ranges are validated at the serializer layer. Spatial filtering uses PostGIS selectors; query parameters are never raw SQL.
 
 ## Background jobs
 
-Risk tasks use Celery with Redis as broker. Tasks are retryable and idempotent where possible:
+Celery/Redis handles zone refresh, derived assessment persistence, alert evaluation and hotspot refresh. Tasks are retryable with bounded retries/backoff and do not contain fixed station catalogues.
 
-- refresh current risk for active zones
-- recompute derived assessments
-- update alerts
-- refresh hotspot snapshots/cache
-- optional cleanup of resolved alerts/history according to retention settings
+## Non-goals
 
-No scheduled task embeds a fixed station list or provider-specific station variables.
-
-## Error handling
-
-- Invalid coordinates/ranges return structured 400 responses.
-- Missing weather/hydrology data produces a partial-feature assessment with explicit `data_quality`/`missing_features` metadata, not a fabricated precise value.
-- Unavailable ML artifact falls back to deterministic baseline and records `model_source=baseline`.
-- External service failures are isolated from HTTP requests; background tasks retry with bounded backoff.
-- Spatial queries require valid geometry input and use database indexes.
-
-## Testing
-
-The rebuilt app must include unit tests for risk normalization, score/level mapping, historical feature derivation, service fallbacks, and alert threshold transitions; API tests for validation and representative endpoint responses; and database tests for PostGIS nearest/radius filtering and model constraints. Management-command tests must cover valid import, malformed rows, duplicate handling, and provenance preservation. Celery tasks must be tested as callable functions with external dependencies mocked.
-
-## Non-goals for this rebuild
-
-- No hard-coded station catalogue.
-- No provider-specific HTTP clients in Risk.
-- No giant raw datasets, rasters, satellite imagery, or model weights in Git.
-- No model training in web requests.
-- No microservice decomposition.
-- No complex global event ontology.
-- No fabricated terrain/GLOF/satellite data when source layers are absent.
+No hard-coded stations, provider-specific HTTP clients in Risk, large datasets/rasters/weights in Git, request-time model training, microservice decomposition, or fabricated terrain/GLOF/satellite data.
 
 ## Acceptance criteria
 
-The implementation is complete when Risk can be migrated against PostGIS, import historical flood events, expose event/zone/current/breakdown/summary APIs, compute a transparent baseline score from available normalized features, persist assessments/zones, run Celery refresh/alert tasks using Redis, use spatial nearest/radius queries, integrate through `risk_service`, and pass the Risk test suite without embedding ETL/provider calls/training in views.
+Risk must migrate against PostGIS, import historical flood events, expose the documented endpoints, compute transparent baseline scores from available normalized features, persist assessments/zones, run Celery refresh/alert jobs, use spatial nearest/radius queries, integrate through `risk_service`, and have a maintainable test suite.
