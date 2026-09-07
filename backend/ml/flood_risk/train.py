@@ -159,7 +159,8 @@ def evaluate_event_level(
         false_alerts["day"] = false_alerts["observed_at"].dt.floor("D")
         false_alarm_station_days = int(false_alerts[["station_id", "day"]].drop_duplicates().shape[0])
 
-    station_days = int(df[["station_id", df["observed_at"].dt.floor("D")]].drop_duplicates().shape[0])
+    df["day"] = df["observed_at"].dt.floor("D")
+    station_days = int(df[["station_id", "day"]].drop_duplicates().shape[0])
     return {
         "event_gap_hours": float(event_gap_hours),
         "event_count": event_count,
