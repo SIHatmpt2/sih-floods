@@ -7,6 +7,8 @@ from typing import Any
 _FIELD_ALIASES = {
     "station_id": ("station_id", "stationId", "id", "code"),
     "station_name": ("station_name", "stationName", "name"),
+    "state": ("state", "state_name", "stateName"),
+    "district": ("district", "district_name", "districtName"),
     "latitude": ("latitude", "lat", "Latitude"),
     "longitude": ("longitude", "lon", "lng", "Longitude"),
     "timestamp": ("timestamp", "time", "datetime", "date_time", "observed_at"),
@@ -75,6 +77,8 @@ def normalize_weather_records(payload: Any, provider: str) -> list[dict[str, Any
             "provider": provider,
             "station_id": str(station_id),
             "station_name": str(_pick(row, "station_name") or station_id),
+            "state": _pick(row, "state") or "",
+            "district": _pick(row, "district") or "",
             "latitude": latitude,
             "longitude": longitude,
             "timestamp": timestamp,
