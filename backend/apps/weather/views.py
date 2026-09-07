@@ -40,6 +40,16 @@ class WeatherStationListView(ListAPIView):
     queryset = WeatherStation.objects.filter(active=True).order_by("provider", "name")
 
     def list(self, request, *args, **kwargs):
-        return Response(list(self.get_queryset().values(
-            "id", "provider", "station_id", "name", "state", "district", "location"
-        )))
+        rows = []
+        for station in self.get_queryset():
+            rows.append({
+                "id": station.id,
+                "provider": station.provider,
+                "station_id": station.station_id,
+                "name": station.name,
+                "state": station.state,
+                "district": station.district,
+                "latitude": station.location.y,
+                "longitude": station.location.x,
+            })
+        return Response(rows)

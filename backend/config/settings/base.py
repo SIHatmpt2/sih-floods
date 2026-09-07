@@ -23,7 +23,7 @@ def env_list(name: str, default: str) -> list[str]:
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "insecure-dev-key-override-in-production")
 INSTALLED_APPS = [
     "django.contrib.contenttypes", "django.contrib.auth", "django.contrib.gis",
-    "rest_framework", "corsheaders", "django_celery_beat", "drf_spectacular",
+    "rest_framework", "corsheaders", "drf_spectacular",
     "apps.weather", "apps.core", "apps.risk",
 ]
 MIDDLEWARE = [
@@ -65,7 +65,9 @@ CWC_API_KEY = os.environ.get("CWC_API_KEY") or None
 STATE_API_TIMEOUT = int(os.environ.get("STATE_API_TIMEOUT", "30"))
 STATE_API_ENDPOINTS = {}
 WEATHER_PROVIDER_PRIORITY = env_list("WEATHER_PROVIDER_PRIORITY", "accuweather,imd,cwc")
+WEATHER_MAX_AGE_MINUTES = int(os.environ.get("WEATHER_MAX_AGE_MINUTES", "180"))
 WEATHER_API_REQUIRE_AUTH = env_bool("WEATHER_API_REQUIRE_AUTH", False)
 RISK_API_REQUIRE_AUTH = env_bool("RISK_API_REQUIRE_AUTH", False)
 RISK_XGBOOST_MODEL_PATH = os.environ.get("RISK_XGBOOST_MODEL_PATH", "") or None
+RISK_TERRAIN_SOURCE = os.environ.get("RISK_TERRAIN_SOURCE", "unconfigured")
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
