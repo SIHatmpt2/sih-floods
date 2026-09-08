@@ -3,12 +3,20 @@ name: Backend CI
 on:
   push:
     branches: [main]
+    paths:
+      - "backend/**"
+      - "docker/**"
+      - ".github/workflows/backend-ci.yml"
+      - "frontend/**"
+      - "docker-compose.yml"
   pull_request:
     branches: [main]
     paths:
       - "backend/**"
       - "docker/**"
       - ".github/workflows/backend-ci.yml"
+      - "frontend/**"
+      - "docker-compose.yml"
   workflow_dispatch:
 
 jobs:
@@ -34,10 +42,8 @@ jobs:
           - 6379:6379
     steps:
       - uses: actions/checkout@v4
-
       - name: Build backend image
         run: docker build -t sih-floods-backend-ci -f docker/django/Dockerfile .
-
       - name: Django checks, migrations, and tests
         run: |
           docker run --rm --network host \
@@ -53,3 +59,19 @@ jobs:
             -w /app \
             sih-floods-backend-ci \
             sh -c 'python manage.py check && python manage.py makemigrations --check && python manage.py migrate --noinput && python manage.py test apps.core apps.risk apps.weather'
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Typecheck and build frontend
+        working-directory: frontend
+        run: npm run check
