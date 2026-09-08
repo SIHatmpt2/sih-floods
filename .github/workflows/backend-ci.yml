@@ -39,9 +39,6 @@ jobs:
         run: docker build -t sih-floods-backend-ci -f docker/django/Dockerfile .
 
       - name: Django checks, migrations, and tests
-        env:
-          REDIS_HOST: 127.0.0.1
-          REDIS_PORT: 6379
         run: |
           docker run --rm --network host \
             -e POSTGRES_HOST=127.0.0.1 \
