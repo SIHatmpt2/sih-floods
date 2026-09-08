@@ -74,6 +74,23 @@ services:
       redis:
         condition: service_started
 
+  beat:
+    build:
+      context: .
+      dockerfile: docker/django/Dockerfile
+    container_name: flood_beat
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: celery -A config.celery beat --loglevel=info
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
   frontend:
     build:
       context: ./frontend
