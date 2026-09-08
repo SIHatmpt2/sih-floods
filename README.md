@@ -50,27 +50,8 @@ The system analyzes four major flood-risk drivers:
 
 &#x20;  - Assam
 
-&#x20;  - Bihar
-
-&#x20;  - West Bengal
-
 &#x20;  - adjoining flood-prone regions
 
-
-
-3\. Cyclone-driven flooding
-
-&#x20;  - Odisha
-
-&#x20;  - Andhra Pradesh
-
-&#x20;  - West Bengal
-
-&#x20;  - Gujarat
-
-&#x20;  - Maharashtra
-
-&#x20;  - other affected coastal regions
 
 
 
@@ -303,8 +284,6 @@ Suggested API structure:
 &#x20;   glaciers/
 
 &#x20;   rivers/
-
-&#x20;   cyclones/
 
 &#x20;   rainfall/
 
