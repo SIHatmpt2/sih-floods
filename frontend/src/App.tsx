@@ -1,9 +1,5 @@
-function App() {
-  return (
-    <div>
-      <h1>SIH Flood Intelligence Platform</h1>
-    </div>
-  );
-}
+import FloodWatchPage from "./pages/FloodWatch/FloodWatchPage";
 
-export default App;
+export default function App() {
+  return <FloodWatchPage />;
+}
