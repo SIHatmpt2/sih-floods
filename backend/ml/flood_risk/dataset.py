@@ -333,18 +333,43 @@ def write_training_table(df: pd.DataFrame, output_path: str | Path = DEFAULT_OUT
     return output
 
 
-def _read_processed(root: Path, relative: str, name: str, columns: list[str] | None = None) -> pd.DataFrame:
+def _read_processed(
+    root: Path,
+    relative: str,
+    name: str,
+    columns: list[str] | None = None,
+    optional_columns: set[str] | None = None,
+) -> pd.DataFrame:
     path = root / "processed" / relative
     if not path.exists():
         raise FileNotFoundError(f"Missing processed {name}: {path}. Run its corresponding data-processing pipeline first.")
     LOGGER.info("Reading %s: %s", name, path)
-    return pd.read_parquet(path, columns=columns) if columns else pd.read_parquet(path)
+    if not columns:
+        return pd.read_parquet(path)
+
+    optional = optional_columns or set()
+    table = pd.read_parquet(path)
+    available = set(table.columns)
+    missing = [column for column in columns if column not in available]
+    unexpected_missing = [column for column in missing if column not in optional]
+    if unexpected_missing:
+        raise ValueError(f"{name} is missing required columns: {sorted(unexpected_missing)}")
+    for column in missing:
+        table[column] = pd.NA
+    return table.loc[:, columns]
 
 
 def load_processed_inputs(data_root: str | Path = DEFAULT_DATA_ROOT):
     root = Path(data_root)
-    river = _read_processed(root, "river_data/parquet/river_observations.parquet", "river data", ["station_id", "station", "state", "district", "tehsil", "block", "village", "river", "basin", "latitude", "longitude", "observed_at", "water_level_m", "discharge_cumecs"])
-    rainfall = _read_processed(root, "rainfall/parquet/rainfall_observations.parquet", "rainfall data", ["station_id", "station", "latitude", "longitude", "observed_at", "rainfall_mm"])
+    river_columns = ["station_id", "station", "state", "district", "tehsil", "block", "village", "river", "basin", "latitude", "longitude", "observed_at", "water_level_m", "discharge_cumecs"]
+    river = _read_processed(
+        root,
+        "river_data/parquet/river_observations.parquet",
+        "river data",
+        river_columns,
+        optional_columns={"station", "state", "district", "tehsil", "block", "village", "river", "basin", "latitude", "longitude", "water_level_m", "discharge_cumecs"},
+    )
+    rainfall = _read_processed(root, "rainfall/parquet/rainfall_observations.parquet", "rainfall data", ["station_id", "station", "latitude", "longitude", "observed_at", "rainfall_mm"], optional_columns={"station", "latitude", "longitude"})
     events = _read_processed(root, "past_events/parquet/past_flood_events.parquet", "past flood events")
     glacier_path = root / "processed" / "glaciers_data" / "parquet" / "glacier_changes.parquet"
     glaciers = pd.read_parquet(glacier_path) if glacier_path.exists() else None
