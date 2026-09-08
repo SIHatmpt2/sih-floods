@@ -1,0 +1,243 @@
+{
+  "min_consecutive_alerts": 6,
+  "alert_cooldown_hours": 72.0,
+  "threshold": 4.3410967919044197e-05,
+  "event_recall": 1.0,
+  "false_alarm_station_days": 325,
+  "false_alarm_rows": 325,
+  "false_alarms_per_station_day": 0.33678756476683935,
+  "alerts": 327,
+  "policy_sweep": [
+    {
+      "min_consecutive_alerts": 1,
+      "alert_cooldown_hours": 24.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 1.0,
+      "false_alarm_station_days": 562,
+      "false_alarm_rows": 562,
+      "false_alarms_per_station_day": 0.5823834196891192,
+      "alerts": 565
+    },
+    {
+      "min_consecutive_alerts": 2,
+      "alert_cooldown_hours": 24.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 1.0,
+      "false_alarm_station_days": 554,
+      "false_alarm_rows": 554,
+      "false_alarms_per_station_day": 0.5740932642487047,
+      "alerts": 557
+    },
+    {
+      "min_consecutive_alerts": 3,
+      "alert_cooldown_hours": 24.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 1.0,
+      "false_alarm_station_days": 547,
+      "false_alarm_rows": 547,
+      "false_alarms_per_station_day": 0.566839378238342,
+      "alerts": 550
+    },
+    {
+      "min_consecutive_alerts": 6,
+      "alert_cooldown_hours": 24.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 1.0,
+      "false_alarm_station_days": 529,
+      "false_alarm_rows": 529,
+      "false_alarms_per_station_day": 0.5481865284974093,
+      "alerts": 532
+    },
+    {
+      "min_consecutive_alerts": 12,
+      "alert_cooldown_hours": 24.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 1.0,
+      "false_alarm_station_days": 500,
+      "false_alarm_rows": 500,
+      "false_alarms_per_station_day": 0.5181347150259067,
+      "alerts": 503
+    },
+    {
+      "min_consecutive_alerts": 1,
+      "alert_cooldown_hours": 48.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 1.0,
+      "false_alarm_station_days": 406,
+      "false_alarm_rows": 406,
+      "false_alarms_per_station_day": 0.42072538860103625,
+      "alerts": 408
+    },
+    {
+      "min_consecutive_alerts": 2,
+      "alert_cooldown_hours": 48.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 1.0,
+      "false_alarm_station_days": 400,
+      "false_alarm_rows": 400,
+      "false_alarms_per_station_day": 0.41450777202072536,
+      "alerts": 402
+    },
+    {
+      "min_consecutive_alerts": 3,
+      "alert_cooldown_hours": 48.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 1.0,
+      "false_alarm_station_days": 395,
+      "false_alarm_rows": 395,
+      "false_alarms_per_station_day": 0.40932642487046633,
+      "alerts": 397
+    },
+    {
+      "min_consecutive_alerts": 6,
+      "alert_cooldown_hours": 48.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 1.0,
+      "false_alarm_station_days": 384,
+      "false_alarm_rows": 384,
+      "false_alarms_per_station_day": 0.39792746113989635,
+      "alerts": 386
+    },
+    {
+      "min_consecutive_alerts": 12,
+      "alert_cooldown_hours": 48.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 1.0,
+      "false_alarm_station_days": 368,
+      "false_alarm_rows": 368,
+      "false_alarms_per_station_day": 0.38134715025906735,
+      "alerts": 370
+    },
+    {
+      "min_consecutive_alerts": 18,
+      "alert_cooldown_hours": 48.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 0.5,
+      "false_alarm_station_days": 327,
+      "false_alarm_rows": 327,
+      "false_alarms_per_station_day": 0.338860103626943,
+      "alerts": 328
+    },
+    {
+      "min_consecutive_alerts": 24,
+      "alert_cooldown_hours": 48.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 0.5,
+      "false_alarm_station_days": 307,
+      "false_alarm_rows": 307,
+      "false_alarms_per_station_day": 0.31813471502590673,
+      "alerts": 309
+    },
+    {
+      "min_consecutive_alerts": 6,
+      "alert_cooldown_hours": 72.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 1.0,
+      "false_alarm_station_days": 325,
+      "false_alarm_rows": 325,
+      "false_alarms_per_station_day": 0.33678756476683935,
+      "alerts": 327
+    },
+    {
+      "min_consecutive_alerts": 12,
+      "alert_cooldown_hours": 72.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 0.5,
+      "false_alarm_station_days": 312,
+      "false_alarm_rows": 312,
+      "false_alarms_per_station_day": 0.3233160621761658,
+      "alerts": 313
+    },
+    {
+      "min_consecutive_alerts": 18,
+      "alert_cooldown_hours": 72.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 0.0,
+      "false_alarm_station_days": 279,
+      "false_alarm_rows": 279,
+      "false_alarms_per_station_day": 0.28911917098445594,
+      "alerts": 279
+    },
+    {
+      "min_consecutive_alerts": 24,
+      "alert_cooldown_hours": 72.0,
+      "threshold": 4.3410967919044197e-05,
+      "event_recall": 0.5,
+      "false_alarm_station_days": 262,
+      "false_alarm_rows": 262,
+      "false_alarms_per_station_day": 0.27150259067357513,
+      "alerts": 263
+    }
+  ],
+  "dataset": "apps/risk/data/processed/training_v1.parquet",
+  "model": "models/flood_risk_v1.json",
+  "target_event_recall": 0.8,
+  "validation_rows": 27582,
+  "validation_positive_count": 165,
+  "policy_candidates": [
+    {
+      "min_consecutive_alerts": 1,
+      "alert_cooldown_hours": 24.0
+    },
+    {
+      "min_consecutive_alerts": 2,
+      "alert_cooldown_hours": 24.0
+    },
+    {
+      "min_consecutive_alerts": 3,
+      "alert_cooldown_hours": 24.0
+    },
+    {
+      "min_consecutive_alerts": 6,
+      "alert_cooldown_hours": 24.0
+    },
+    {
+      "min_consecutive_alerts": 12,
+      "alert_cooldown_hours": 24.0
+    },
+    {
+      "min_consecutive_alerts": 1,
+      "alert_cooldown_hours": 48.0
+    },
+    {
+      "min_consecutive_alerts": 2,
+      "alert_cooldown_hours": 48.0
+    },
+    {
+      "min_consecutive_alerts": 3,
+      "alert_cooldown_hours": 48.0
+    },
+    {
+      "min_consecutive_alerts": 6,
+      "alert_cooldown_hours": 48.0
+    },
+    {
+      "min_consecutive_alerts": 12,
+      "alert_cooldown_hours": 48.0
+    },
+    {
+      "min_consecutive_alerts": 18,
+      "alert_cooldown_hours": 48.0
+    },
+    {
+      "min_consecutive_alerts": 24,
+      "alert_cooldown_hours": 48.0
+    },
+    {
+      "min_consecutive_alerts": 6,
+      "alert_cooldown_hours": 72.0
+    },
+    {
+      "min_consecutive_alerts": 12,
+      "alert_cooldown_hours": 72.0
+    },
+    {
+      "min_consecutive_alerts": 18,
+      "alert_cooldown_hours": 72.0
+    },
+    {
+      "min_consecutive_alerts": 24,
+      "alert_cooldown_hours": 72.0
+    }
+  ]
+}
