@@ -69,5 +69,6 @@ WEATHER_MAX_AGE_MINUTES = int(os.environ.get("WEATHER_MAX_AGE_MINUTES", "180"))
 WEATHER_API_REQUIRE_AUTH = env_bool("WEATHER_API_REQUIRE_AUTH", False)
 RISK_API_REQUIRE_AUTH = env_bool("RISK_API_REQUIRE_AUTH", False)
 RISK_XGBOOST_MODEL_PATH = os.environ.get("RISK_XGBOOST_MODEL_PATH", "") or None
+RISK_JSON_MODEL_PATH = os.environ.get("RISK_JSON_MODEL_PATH", "") or None
 RISK_TERRAIN_SOURCE = os.environ.get("RISK_TERRAIN_SOURCE", "unconfigured")
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
