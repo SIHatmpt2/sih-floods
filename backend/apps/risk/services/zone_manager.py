@@ -28,23 +28,24 @@ def collect_features(latitude, longitude):
 
 
 def score_features(features):
+    baseline = score_baseline(features)
     model_path = getattr(settings, "RISK_JSON_MODEL_PATH", None)
-    if model_path:
-        try:
-            prediction = RiskModelPredictor(model_path).predict(features)
-            from .normalizer import risk_level
-            score = prediction["score"]
-            return score_baseline(features).__class__(
-                score=score,
-                level=risk_level(score),
-                breakdown=score_baseline(features).breakdown,
-                features=features,
-                model_source=f"json:{prediction['model_version']}",
-                data_quality={"model": "json", "partial": False},
-            )
-        except (OSError, ValueError, TypeError, KeyError):
-            pass
-    return score_baseline(features)
+    if not model_path:
+        return baseline
+    try:
+        prediction = RiskModelPredictor(model_path).predict(features)
+        from .normalizer import risk_level
+        score = prediction["score"]
+        return baseline.__class__(
+            score=score,
+            level=risk_level(score),
+            breakdown=baseline.breakdown,
+            features=features,
+            model_source=f"json:{prediction['model_version']}",
+            data_quality={"model": "json", "partial": False},
+        )
+    except (OSError, ValueError, TypeError, KeyError):
+        return baseline
 
 
 @transaction.atomic
