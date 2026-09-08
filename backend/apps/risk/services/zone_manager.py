@@ -8,11 +8,21 @@ from .terrain import terrain_features
 from .historical import historical_features
 from .risk_engine import score_baseline
 from .alert_engine import create_or_update_alert
+from .weather_adapter import WeatherRiskAdapter
 from . import cache
 
 
 def collect_features(latitude, longitude):
     features = {}
+    # WeatherService is the provider boundary. Risk consumes only normalized
+    # weather data through the adapter and retains its existing DB-derived
+    # rainfall/river/terrain/history feature sources.
+    try:
+        features.update(WeatherRiskAdapter().current_features(latitude, longitude))
+    except Exception:
+        # Provider keys may be absent during setup; existing local feature
+        # pipelines remain authoritative until live Weather data is available.
+        pass
     features.update(rainfall_features(latitude, longitude))
     features.update(river_features(latitude, longitude))
     features.update(terrain_features(latitude, longitude))
