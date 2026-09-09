@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
 
@@ -12,7 +12,7 @@ class RiverFeatureTests(SimpleTestCase):
         station = SimpleNamespace(
             provider="cwc",
             distance=SimpleNamespace(m=1000),
-            observations=SimpleNamespace(),
+            observations=MagicMock(),
         )
         stations.filter.return_value.distinct.return_value.filter.return_value.annotate.return_value.order_by.return_value.__getitem__.return_value = [station]
         stations.filter.return_value.distinct.return_value.annotate.return_value.order_by.return_value.__getitem__.return_value = [station]
