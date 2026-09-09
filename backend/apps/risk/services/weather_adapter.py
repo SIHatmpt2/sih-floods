@@ -1,8 +1,8 @@
 """Risk-side adapter for consuming normalized WeatherService data."""
 from __future__ import annotations
 
-from backend.services.weather_service import WeatherService
-from backend.data_processing.feature_builder import build_risk_features
+from services.weather_service import WeatherService
+from data_processing.feature_builder import build_risk_features
 
 
 class WeatherRiskAdapter:
