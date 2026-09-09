@@ -20,6 +20,7 @@ def env_bool(name: str, default: bool) -> bool:
 def env_list(name: str, default: str) -> list[str]:
     return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
 
+
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "insecure-dev-key-override-in-production")
 INSTALLED_APPS = [
     "django.contrib.contenttypes", "django.contrib.auth", "django.contrib.gis",
@@ -43,7 +44,7 @@ USE_TZ = True
 LANGUAGE_CODE = "en-us"
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS", "")
+CORS_ALLOWED_ORIGINS = env_list("DJANGO_CORS_ALLOWED_ORIGINS", env_list("CORS_ALLOWED_ORIGINS", ""))
 CORS_ALLOW_CREDENTIALS = True
 REST_FRAMEWORK: dict[str, Any] = {"DEFAULT_PAGINATION_CLASS": "apps.weather.pagination.WeatherPageNumberPagination", "PAGE_SIZE": 20, "DEFAULT_PERMISSION_CLASSES": ["apps.weather.permissions.WeatherAPIPermission"], "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"], "EXCEPTION_HANDLER": "apps.weather.exceptions.weather_exception_handler", "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema"}
 SPECTACULAR_SETTINGS = {"TITLE": "SIH Flood Weather API", "DESCRIPTION": "Unified Weather, Flood Risk, and Core API.", "VERSION": "1.0.0", "SERVE_INCLUDE_SCHEMA": False, "COMPONENT_SPLIT_REQUEST": True}
@@ -64,7 +65,8 @@ CWC_API_URL = os.environ.get("CWC_API_URL") or None
 CWC_API_KEY = os.environ.get("CWC_API_KEY") or None
 STATE_API_TIMEOUT = int(os.environ.get("STATE_API_TIMEOUT", "30"))
 STATE_API_ENDPOINTS = {}
-WEATHER_PROVIDER_PRIORITY = env_list("WEATHER_PROVIDER_PRIORITY", "accuweather,imd,cwc")
+WEATHER_API_TIMEOUT = int(os.environ.get("WEATHER_API_TIMEOUT", "30"))
+WEATHER_PROVIDER_PRIORITY = env_list("WEATHER_PROVIDER_PRIORITY", "imd,cwc")
 WEATHER_MAX_AGE_MINUTES = int(os.environ.get("WEATHER_MAX_AGE_MINUTES", "180"))
 WEATHER_API_REQUIRE_AUTH = env_bool("WEATHER_API_REQUIRE_AUTH", False)
 RISK_API_REQUIRE_AUTH = env_bool("RISK_API_REQUIRE_AUTH", False)
