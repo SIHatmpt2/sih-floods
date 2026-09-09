@@ -53,6 +53,7 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
             ],
         },
@@ -82,6 +83,7 @@ WEATHER_PROVIDER_PRIORITY = [
 ]
 WEATHER_MAX_AGE_MINUTES = int(os.getenv("WEATHER_MAX_AGE_MINUTES", "180"))
 WEATHER_API_REQUIRE_AUTH = os.getenv("WEATHER_API_REQUIRE_AUTH", "0") == "1"
+WEATHER_API_TIMEOUT = int(os.getenv("WEATHER_API_TIMEOUT", "30"))
 STATE_API_TIMEOUT = int(os.getenv("STATE_API_TIMEOUT", "30"))
 
 IMD_API_URL = os.getenv("IMD_API_URL")
