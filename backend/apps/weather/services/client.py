@@ -7,6 +7,8 @@ from urllib.request import Request, urlopen
 
 class WeatherProviderClient:
     def __init__(self, timeout: int = 30):
+        if timeout <= 0:
+            raise ValueError("timeout must be greater than zero")
         self.timeout = timeout
 
     def get(self, url: str, *, params: dict | None = None, api_key: str | None = None):
@@ -17,4 +19,8 @@ class WeatherProviderClient:
             headers["Authorization"] = f"Bearer {api_key}"
         request = Request(target, headers=headers, method="GET")
         with urlopen(request, timeout=self.timeout) as response:
-            return json.loads(response.read().decode("utf-8"))
+            raw = response.read().decode("utf-8")
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError("Weather provider returned invalid JSON") from exc
