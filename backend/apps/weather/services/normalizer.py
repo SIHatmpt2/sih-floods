@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -57,9 +57,16 @@ def _timestamp(value):
     if value in (None, ""):
         raise ValueError("Missing timestamp")
     if isinstance(value, datetime):
-        return value
-    text = str(value).strip().replace("Z", "+00:00")
-    return datetime.fromisoformat(text)
+        parsed = value
+    else:
+        text = str(value).strip().replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError as exc:
+            raise ValueError(f"Invalid timestamp: {value!r}") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def normalize_weather_records(payload: Any, provider: str) -> list[dict[str, Any]]:
