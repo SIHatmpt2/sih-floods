@@ -18,3 +18,8 @@ class WeatherAppTests(SimpleTestCase):
 
     def test_weather_provider_defaults_are_configured(self):
         self.assertEqual(settings.WEATHER_PROVIDER_PRIORITY, ["imd", "cwc"])
+
+    def test_project_urls_import_without_backend_package(self):
+        import config.urls
+
+        self.assertTrue(config.urls.urlpatterns)
