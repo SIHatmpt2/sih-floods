@@ -10,7 +10,7 @@ from .historical import historical_features
 from .risk_engine import score_baseline
 from .alert_engine import create_or_update_alert
 from .weather_adapter import WeatherRiskAdapter
-from backend.ml.predictor import RiskModelPredictor
+from ml.predictor import RiskModelPredictor
 from . import cache
 
 
