@@ -34,7 +34,7 @@ class Command(BaseCommand):
 
             for row_number, row in enumerate(reader, start=2):
                 try:
-                    source = f'{options["source-prefix"]}:{row["source"]}'.strip(":")
+                    source = f'{options["source_prefix"]}:{row["source"]}'.strip(":")
                     source_record_id = row.get("id") or str(row_number)
                     event = {
                         "name": row["name"].strip(),
