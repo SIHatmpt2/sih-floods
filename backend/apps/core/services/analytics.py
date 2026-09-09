@@ -1,4 +1,5 @@
 from django.db.models import Count
+
 from apps.risk.models import RiskAssessment
 
 
@@ -15,7 +16,7 @@ class AnalyticsService:
     def state_summary(self, state: str | None = None) -> dict:
         queryset = RiskAssessment.objects.select_related("zone")
         if state:
-            queryset = queryset.filter(zone__state__iexact=state)
+            queryset = queryset.filter(features__state__iexact=state)
         distribution = {
             row["risk_level"]: row["count"]
             for row in queryset.values("risk_level").annotate(count=Count("id"))
