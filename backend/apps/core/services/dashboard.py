@@ -1,5 +1,5 @@
-from backend.services.weather_service import WeatherService
-from backend.services.risk_service import RiskService
+from services.weather_service import WeatherService
+from services.risk_service import RiskService
 from .cache import get_dashboard, set_dashboard
 from .notification import NotificationService
 
