@@ -2,7 +2,7 @@ from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from backend.services.risk_service import RiskService
+from services.risk_service import RiskService
 from .permissions import RiskAPIPermission
 from .models import FloodEvent, RiskZone, RiskAlert, HotspotSnapshot
 from .serializers import CoordinateQuerySerializer, DaysQuerySerializer, FloodEventSerializer, RiskZoneSerializer, RiskAlertSerializer, HotspotSnapshotSerializer
