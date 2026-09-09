@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     "apps.core",
     "apps.risk",
     "apps.weather",
@@ -26,12 +27,19 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    if origin.strip()
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -66,6 +74,20 @@ DATABASES = {
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/1")
+
+WEATHER_PROVIDER_PRIORITY = [
+    provider.strip().lower()
+    for provider in os.getenv("WEATHER_PROVIDER_PRIORITY", "imd,cwc").split(",")
+    if provider.strip()
+]
+WEATHER_MAX_AGE_MINUTES = int(os.getenv("WEATHER_MAX_AGE_MINUTES", "180"))
+WEATHER_API_REQUIRE_AUTH = os.getenv("WEATHER_API_REQUIRE_AUTH", "0") == "1"
+STATE_API_TIMEOUT = int(os.getenv("STATE_API_TIMEOUT", "30"))
+
+IMD_API_URL = os.getenv("IMD_API_URL")
+IMD_API_KEY = os.getenv("IMD_API_KEY")
+CWC_API_URL = os.getenv("CWC_API_URL")
+CWC_API_KEY = os.getenv("CWC_API_KEY")
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
