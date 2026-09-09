@@ -1,6 +1,6 @@
 from unittest.mock import patch
 from django.test import SimpleTestCase
-from backend.services.core_service import CoreService
+from services.core_service import CoreService
 
 
 class CoreDashboardTests(SimpleTestCase):
