@@ -10,7 +10,7 @@ from .normalizer import normalize_weather_records
 
 class WeatherIngestionService:
     def __init__(self):
-        self.client = WeatherProviderClient(timeout=getattr(settings, "STATE_API_TIMEOUT", 30))
+        self.client = WeatherProviderClient(timeout=getattr(settings, "WEATHER_API_TIMEOUT", 30))
 
     def configured_providers(self):
         configured = {}
@@ -25,7 +25,7 @@ class WeatherIngestionService:
 
     def refresh(self) -> dict:
         results = {}
-        for provider in getattr(settings, "WEATHER_PROVIDER_PRIORITY", ["accuweather", "imd", "cwc"]):
+        for provider in getattr(settings, "WEATHER_PROVIDER_PRIORITY", ["imd", "cwc"]):
             config = self.configured_providers().get(provider)
             if not config:
                 results[provider] = {"status": "not_configured", "records": 0}
