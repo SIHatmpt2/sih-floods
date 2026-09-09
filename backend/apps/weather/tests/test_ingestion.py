@@ -7,9 +7,10 @@ from apps.weather.services.ingestion import WeatherIngestionService
 
 
 class WeatherIngestionTests(SimpleTestCase):
+    @patch("apps.weather.services.ingestion.WeatherProviderClient")
     @patch("apps.weather.services.ingestion.WeatherObservation.objects")
     @patch("apps.weather.services.ingestion.WeatherStation.objects")
-    def test_store_does_not_erase_existing_station_metadata(self, stations, observations):
+    def test_store_does_not_erase_existing_station_metadata(self, stations, observations, client):
         station = SimpleNamespace(state="Uttarakhand", district="Dehradun")
         stations.update_or_create.return_value = (station, False)
         observations.update_or_create.return_value = (SimpleNamespace(), True)
@@ -30,3 +31,9 @@ class WeatherIngestionTests(SimpleTestCase):
 
         self.assertNotIn("state", stations.update_or_create.call_args.kwargs["defaults"])
         self.assertNotIn("district", stations.update_or_create.call_args.kwargs["defaults"])
+
+    @patch("apps.weather.services.ingestion.WeatherProviderClient")
+    def test_uses_weather_api_timeout_setting(self, client):
+        with self.settings(WEATHER_API_TIMEOUT=11):
+            WeatherIngestionService()
+        client.assert_called_once_with(timeout=11)
