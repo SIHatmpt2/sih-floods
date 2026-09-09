@@ -16,9 +16,9 @@ class WeatherStation(models.Model):
     class Meta:
         unique_together = [("provider", "station_id")]
         indexes = [
-            models.Index(fields=["active", "provider"], name="weather_station_active_provider_idx"),
-            models.Index(fields=["active", "state"], name="weather_station_active_state_idx"),
-            models.Index(fields=["active", "district"], name="weather_station_active_district_idx"),
+            models.Index(fields=["active", "provider"], name="ws_active_provider_idx"),
+            models.Index(fields=["active", "state"], name="ws_active_state_idx"),
+            models.Index(fields=["active", "district"], name="ws_active_district_idx"),
         ]
 
     def __str__(self) -> str:
