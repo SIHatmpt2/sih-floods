@@ -1,5 +1,5 @@
 from django.test import TestCase
-from backend.services.core_service import CoreService
+from services.core_service import CoreService
 
 
 class NotificationTests(TestCase):
