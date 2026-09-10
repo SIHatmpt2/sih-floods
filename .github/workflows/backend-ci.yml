@@ -2,12 +2,13 @@ name: Backend CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, django-frontend-migration]
   pull_request:
     branches: [main]
     paths:
       - "backend/**"
       - "docker/**"
+      - "docker-compose.yml"
       - ".github/workflows/backend-ci.yml"
   workflow_dispatch:
 
@@ -38,7 +39,7 @@ jobs:
       - name: Build backend image
         run: docker build -t sih-floods-backend-ci -f docker/django/Dockerfile .
 
-      - name: Django checks, migrations, and tests
+      - name: Django checks, migrations, tests, and template/static validation
         run: |
           docker run --rm --network host \
             -e POSTGRES_HOST=127.0.0.1 \
@@ -52,4 +53,4 @@ jobs:
             -v "$GITHUB_WORKSPACE/backend:/app" \
             -w /app \
             sih-floods-backend-ci \
-            sh -c 'python manage.py check && python manage.py makemigrations --check && python manage.py migrate --noinput && python manage.py test apps.core apps.risk apps.weather'
+            sh -c 'python manage.py check --deploy; python manage.py makemigrations --check; python manage.py migrate --noinput; python manage.py test apps.core apps.risk apps.weather; python manage.py collectstatic --noinput --clear'
