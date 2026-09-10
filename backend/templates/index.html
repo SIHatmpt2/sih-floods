@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -7,15 +8,9 @@
 
     <title>FloodIntel — Intelligent Flash Flood Prediction & Early Warning</title>
 
-    <!-- Leaflet CSS -->
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    >
-
     <!-- Main CSS -->
-    <link rel="stylesheet" href="style.css">
-    <link rel="icon" type="image/png" href="LOGO.png">
+    <link rel="stylesheet" href="{% static 'css/floodintel.css' %}">
+    <link rel="icon" type="image/png" href="{% static 'images/LOGO.png' %}">
 </head>
 
 <body>
@@ -29,8 +24,8 @@
     <aside class="sidebar">
 
         <div class="logo-box">
-    <img src="LOGO.png" alt="FloodIntel Logo" class="site-logo">
-</div>
+            <img src="{% static 'images/LOGO.png' %}" alt="FloodIntel Logo" class="site-logo">
+        </div>
 
 
         <!-- States Covered -->
@@ -180,8 +175,8 @@
                 <div class="brand-text">
 
                     <h1>
-    <span class="flood-text">Flood</span><span class="intel-text">Intel</span>
-</h1>
+                        <span class="flood-text">Flood</span><span class="intel-text">Intel</span>
+                    </h1>
 
                     <p>
                         Intelligent Flash Flood Prediction &amp; Early Warning
@@ -280,9 +275,6 @@
 
             </div>
 
-
-        
-
         </section>
 
 
@@ -292,9 +284,9 @@
 
         <section class="about-section">
 
-           <h2>
-    About <span class="flood-text">Flood</span><span class="intel-text">Intel</span>
-</h2>
+            <h2>
+                About <span class="flood-text">Flood</span><span class="intel-text">Intel</span>
+            </h2>
 
             <p>
                 FloodIntel is an intelligent flash flood prediction and early
@@ -358,7 +350,7 @@
 
                 <a
                     href="#"
-                    onclick="showMessage('River Gauge data source')"
+                    onclick="showMessage('River Gauge data source'); return false;"
                 >
                     River Gauges
                 </a>
@@ -367,7 +359,7 @@
 
                 <a
                     href="#"
-                    onclick="showMessage('Weather API sources')"
+                    onclick="showMessage('Weather API sources'); return false;"
                 >
                     Weather APIs
                 </a>
@@ -522,6 +514,7 @@
 
                 </div>
 
+
             </div>
 
         </section>
@@ -532,12 +525,10 @@
 
 
 <!-- =========================
-     LEAFLET JS
+     FLOODINTEL JS
 ========================= -->
 
-
-
-<script src="script.js"></script>
+<script src="{% static 'js/floodintel.js' %}"></script>
 
 </body>
 </html>
