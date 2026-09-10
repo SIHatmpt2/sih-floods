@@ -1,25 +1,102 @@
 {% load static %}
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#03152b">
-  <title>SIH Flood Intelligence</title>
-  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#102f50">
+    <link rel="icon" type="image/png" href="{% static 'images/LOGO.png' %}">
+    <title>FloodIntel — Intelligent Flash Flood Prediction & Early Warning</title>
+    <link rel="stylesheet" href="{% static 'css/floodintel.css' %}">
 </head>
 <body>
-  <main class="page-shell">
-    <header class="hero">
-      <h1>SIH Flood Intelligence</h1>
-      <p>Django-served flood intelligence frontend with the existing risk, weather, and ML backend preserved.</p>
-    </header>
-    <section class="status-card">
-      <h2>Backend connected</h2>
-      <p>The frontend is served directly by Django templates. API endpoints remain under <code>/api/</code>.</p>
-      <a href="/health/" class="button">Health check</a>
-    </section>
-  </main>
-  <script src="{% static 'js/site.js' %}"></script>
+<div class="dashboard">
+    <aside class="sidebar">
+        <div class="logo-box">
+            <img src="{% static 'images/LOGO.png' %}" alt="FloodIntel Logo" class="site-logo">
+        </div>
+
+        <div class="stat-card blue">
+            <div class="stat-top"><span class="stat-number">5+</span><span class="stat-icon globe-icon" aria-hidden="true"><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="19"></circle><ellipse cx="24" cy="24" rx="9" ry="19"></ellipse><path d="M5 24h38"></path><path d="M8 15h32"></path><path d="M8 33h32"></path></svg></span></div>
+            <div class="stat-title">States Covered</div>
+            <p class="stat-description">Monitoring flood-prone regions across North and North-Eastern India.</p>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-top"><span class="stat-number">5+</span><span class="stat-icon calendar-icon" aria-hidden="true">▦</span></div>
+            <div class="stat-title">Years of Data</div>
+            <p class="stat-description">Historical rainfall, satellite imagery, river levels and weather data.</p>
+        </div>
+        <div class="stat-card brown">
+            <div class="stat-top"><span class="stat-number">24/7</span><span class="stat-icon clock-icon" aria-hidden="true">◷</span></div>
+            <div class="stat-title">Live Detection</div>
+            <p class="stat-description">Continuous monitoring using live weather APIs and changing conditions.</p>
+        </div>
+        <div class="stat-card purple">
+            <div class="stat-top"><span class="stat-number">Multi</span><span class="stat-icon risk-icon" aria-hidden="true">▥</span></div>
+            <div class="stat-title">Risk Assessment</div>
+            <p class="stat-description">Combines multiple data sources to identify changing flood-risk levels.</p>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="header">
+            <div class="brand-text">
+                <h1><span class="flood-text">Flood</span><span class="intel-text">Intel</span></h1>
+                <p>Intelligent Flash Flood Prediction &amp; Early Warning</p>
+            </div>
+        </header>
+
+        <section class="location-section">
+            <label class="location-label" for="locationSelect">Select Location</label>
+            <select id="locationSelect">
+                <option value="location1">Location 1</option>
+                <option value="location2">Location 2</option>
+                <option value="location3">Location 3</option>
+                <option value="location4">Location 4</option>
+                <option value="location5">Location 5</option>
+                <option value="location6">Location 6</option>
+                <option value="location7">Location 7</option>
+                <option value="location8">Location 8</option>
+                <option value="location9">Location 9</option>
+                <option value="location10">Location 10</option>
+            </select>
+        </section>
+
+        <section class="map-container">
+            <div id="map"></div>
+            <div class="map-controls">
+                <button id="zoomIn" aria-label="Zoom in">+</button>
+                <button id="zoomOut" aria-label="Zoom out">−</button>
+            </div>
+        </section>
+
+        <section class="about-section">
+            <h2>About <span class="flood-text">Flood</span><span class="intel-text">Intel</span></h2>
+            <p>FloodIntel is an intelligent flash flood prediction and early warning platform designed to monitor flood-prone regions across North and North-Eastern India.</p>
+            <p>It brings together rainfall, satellite imagery, river levels and weather information to support timely risk assessment and early warning decisions.</p>
+        </section>
+
+        <section class="source-section">
+            <div class="source-label">Data Sources</div>
+            <div class="source-links">
+                <a href="https://mausam.imd.gov.in/" target="_blank" rel="noopener noreferrer">IMD</a><span>|</span>
+                <a href="https://indiawris.gov.in/" target="_blank" rel="noopener noreferrer">India-WRIS</a><span>|</span>
+                <a href="https://www.isro.gov.in/" target="_blank" rel="noopener noreferrer">ISRO</a><span>|</span>
+                <a href="https://www.cwc.gov.in/" target="_blank" rel="noopener noreferrer">CWC</a>
+            </div>
+        </section>
+
+        <section class="helpline-section">
+            <div class="helpline-label">Emergency Helplines</div>
+            <div class="helpline-grid">
+                <div class="helpline-item"><strong>National Emergency</strong><a href="tel:112">112</a><span>Pan India</span></div>
+                <div class="helpline-item"><strong>NDRF</strong><a href="tel:01126107953">011-26107953</a><span>National Disaster Response Force</span></div>
+                <div class="helpline-item"><strong>Disaster Management</strong><a href="tel:1078">1078</a><span>National disaster helpline</span></div>
+                <div class="helpline-item"><strong>Flood Control Room</strong><a href="tel:1070">1070</a><span>State/UT disaster control rooms</span></div>
+            </div>
+        </section>
+    </main>
+</div>
+<script src="{% static 'js/floodintel.js' %}"></script>
 </body>
 </html>
