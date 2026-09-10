@@ -1,1 +1,2 @@
-"""Offline-trained model adapters used by the Risk domain."""
+
+"""Machine-learning pipelines for SIH flood intelligence."""

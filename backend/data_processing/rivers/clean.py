@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from pathlib import Path
 
 import numpy as np
@@ -12,15 +13,37 @@ import pandas as pd
 LOGGER = logging.getLogger(__name__)
 
 _COLUMN_ALIASES = {
-    "sl_no": "source_row_number", "station": "station", "agency": "agency", "state_lgd_code": "state_lgd_code",
-    "state": "state", "district_lgd_code": "district_lgd_code", "district": "district", "tehsil": "tehsil",
-    "block": "block", "village": "village", "river": "river", "basin": "basin", "tributary": "tributary",
-    "subtributary": "subtributary", "subsubtributary": "subsubtributary", "local_river": "local_river",
-    "latitude": "latitude", "longitude": "longitude", "is_discharge_data_available": "is_discharge_data_available",
-    "rl_of_zero_gauge": "rl_of_zero_gauge", "mean_sea_level": "mean_sea_level", "data_acquisition_time": "observed_at",
-    "river_water_level_telemetry_hourly_meter": "water_level_m", "river_water_level_telemetry_hourly_m": "water_level_m",
-    "river_discharge": "discharge_cumecs", "river_discharge_cumecs": "discharge_cumecs", "discharge": "discharge_cumecs",
+    "sl_no": "source_row_number",
+    "station": "station",
+    "agency": "agency",
+    "state_lgd_code": "state_lgd_code",
+    "state": "state",
+    "district_lgd_code": "district_lgd_code",
+    "district": "district",
+    "tehsil": "tehsil",
+    "block": "block",
+    "village": "village",
+    "river": "river",
+    "basin": "basin",
+    "tributary": "tributary",
+    "subtributary": "subtributary",
+    "subsubtributary": "subsubtributary",
+    "local_river": "local_river",
+    "latitude": "latitude",
+    "longitude": "longitude",
+    "is_discharge_data_available": "is_discharge_data_available",
+    "is_dischargedataavailable": "is_discharge_data_available",
+    "rl_of_zero_gauge": "rl_of_zero_gauge",
+    "mean_sea_level": "mean_sea_level",
+    "data_acquisition_time": "observed_at",
+    "river_water_level_telemetry_hourly_meter": "water_level_m",
+    "river_water_level_telemetry_hourly_m": "water_level_m",
+    "river_discharge": "discharge_cumecs",
+    "river_discharge_cumecs": "discharge_cumecs",
+    "discharge": "discharge_cumecs",
     "discharge_cumecs": "discharge_cumecs",
+    "telemetry_hourly_river_water_discharge_m3_sec": "discharge_cumecs",
+    "telemetry_hourly_river_water_discharge_m3_sec_": "discharge_cumecs",
 }
 
 CANONICAL_COLUMNS = [
@@ -29,13 +52,20 @@ CANONICAL_COLUMNS = [
     "latitude", "longitude", "is_discharge_data_available", "rl_of_zero_gauge", "mean_sea_level", "observed_at",
     "water_level_m", "discharge_cumecs", "source_file", "source_row_number",
 ]
-_TEXT_COLUMNS = ["station", "agency", "state", "district", "tehsil", "block", "village", "river", "basin", "tributary", "subtributary", "subsubtributary", "local_river", "is_discharge_data_available", "source_file"]
+_TEXT_COLUMNS = [
+    "station", "agency", "state", "district", "tehsil", "block", "village", "river", "basin", "tributary",
+    "subtributary", "subsubtributary", "local_river", "is_discharge_data_available", "source_file",
+]
 _FLOAT_COLUMNS = ["latitude", "longitude", "rl_of_zero_gauge", "mean_sea_level", "water_level_m", "discharge_cumecs"]
 _INT_COLUMNS = ["state_lgd_code", "district_lgd_code", "source_row_number"]
+_DISCHARGE_SENTINELS = {-99999.0, -99999.99, 99999.0, 99999.99, 100000.0}
 
 
 def _normalize_name(name: object) -> str:
+    """Normalize CWC headers, including unit-heavy measurement headers."""
     value = str(name).replace("\ufeff", "").strip().lower()
+    value = re.sub(r"m\s*[³3]\s*/\s*s(?:ec)?", "m3_sec", value)
+    value = re.sub(r"m\s*\^?3\s*/\s*s(?:ec)?", "m3_sec", value)
     for char in "()/\\-.:;":
         value = value.replace(char, " ")
     return "_".join(value.split()).strip("_")
@@ -56,6 +86,14 @@ def normalize_cwc_columns(df: pd.DataFrame) -> pd.DataFrame:
 def _nullify_text(series: pd.Series) -> pd.Series:
     values = series.astype("string").str.strip()
     return values.mask(values.str.lower().isin({"", "-", "--", "nan", "none", "null", "n/a", "na"}))
+
+
+def _coerce_measurement(series: pd.Series) -> pd.Series:
+    """Parse numeric CWC measurements even when exports contain dashes/text/commas."""
+    values = series.astype("string").str.strip()
+    values = values.str.replace(",", "", regex=False)
+    values = values.str.replace(r"[^0-9eE+\-.]", "", regex=True)
+    return pd.to_numeric(values, errors="coerce")
 
 
 def _station_id(row: pd.Series) -> str:
@@ -86,9 +124,17 @@ def clean_cwc_data(df: pd.DataFrame, source_file: str | Path) -> pd.DataFrame:
     for column in _TEXT_COLUMNS:
         if column in result:
             result[column] = _nullify_text(result[column])
+
     for column in _FLOAT_COLUMNS + _INT_COLUMNS:
         if column in result:
-            result[column] = pd.to_numeric(result[column], errors="coerce")
+            result[column] = _coerce_measurement(result[column]) if column in {"water_level_m", "discharge_cumecs"} else pd.to_numeric(result[column], errors="coerce")
+
+    if "discharge_cumecs" in result:
+        result.loc[
+            result["discharge_cumecs"].isin(_DISCHARGE_SENTINELS)
+            | (result["discharge_cumecs"] < 0),
+            "discharge_cumecs",
+        ] = np.nan
 
     if "observed_at" not in result.columns:
         raise ValueError(f"Missing required CWC timestamp column in {source_file}")
@@ -117,5 +163,5 @@ def clean_cwc_data(df: pd.DataFrame, source_file: str | Path) -> pd.DataFrame:
     before = len(result)
     result = result.sort_values(["station_id", "observed_at"], kind="stable")
     result = result.drop_duplicates(["station_id", "observed_at"], keep="first").reset_index(drop=True)
-    LOGGER.info("Cleaned %s: %d rows retained, %d duplicates removed", source, len(result), before - len(result))
+    LOGGER.info("Cleaned %s: %d rows retained, %d duplicates removed, discharge=%d", source, len(result), before - len(result), int(result["discharge_cumecs"].notna().sum()))
     return _apply_schema(result)
