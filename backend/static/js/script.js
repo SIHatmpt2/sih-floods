@@ -1,55 +1,57 @@
-const GOOGLE_MAPS_API_KEY = "AIzaSyDjpeFM_t0zw1KLKi_taxZUDIyEViyzFEc";
-
-const locations = {
-    location1: { name: "Assam Floodplain", lat: 26.2, lng: 92.9 },
-    location2: { name: "Arunachal Pradesh", lat: 28.2, lng: 94.7 },
-    location3: { name: "Sikkim", lat: 27.5, lng: 88.5 },
-    location4: { name: "Nainital, Uttarakhand", lat: 29.3919, lng: 79.4542 },
-    location5: { name: "Himachal Pradesh", lat: 31.8, lng: 77.2 },
-    location6: { name: "Jammu & Kashmir", lat: 33.4, lng: 75.3 },
-    location7: { name: "Ladakh", lat: 34.2, lng: 77.6 },
-    location8: { name: "Northeast Hills", lat: 27.0, lng: 91.0 },
-    location9: { name: "Terai Region", lat: 29.5, lng: 80.5 }
-};
-
+const locations = window.FLOODINTEL_LOCATIONS || {};
 let map;
+let marker;
+
+function getSelectedLocation() {
+    const select = document.getElementById("locationSelect");
+    return locations[select?.value] || Object.values(locations)[0] || null;
+}
 
 function initMap() {
-    const selected = locations[document.getElementById("locationSelect")?.value] || locations.location1;
-    map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: selected.lat, lng: selected.lng },
-        zoom: 5,
-        mapTypeId: "hybrid",
-        streetViewControl: false,
-        mapTypeControl: false,
-        fullscreenControl: true,
-        zoomControl: false
-    });
+    const mapElement = document.getElementById("map");
+    const selected = getSelectedLocation();
+    if (!mapElement || !selected || typeof L === "undefined") return;
+
+    if (map) map.remove();
+
+    const center = [Number(selected.lat), Number(selected.lng)];
+    map = L.map(mapElement, {
+        zoomControl: false,
+        attributionControl: true,
+        scrollWheelZoom: true
+    }).setView(center, 8);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    marker = L.marker(center).addTo(map).bindPopup(selected.name);
+    marker.openPopup();
+    window.setTimeout(() => map?.invalidateSize(), 0);
 }
+
+window.initFloodIntelMap = initMap;
 
 const locationSelect = document.getElementById("locationSelect");
 if (locationSelect) {
     locationSelect.addEventListener("change", function () {
         const selectedLocation = locations[this.value];
         if (!selectedLocation) return;
+
         if (map) {
-            map.panTo({ lat: selectedLocation.lat, lng: selectedLocation.lng });
-            map.setZoom(8);
+            const center = [Number(selectedLocation.lat), Number(selectedLocation.lng)];
+            map.setView(center, 8, { animate: true });
+            marker?.setLatLng(center).bindPopup(selectedLocation.name).openPopup();
         }
-        window.location.href = `/?location=${encodeURIComponent(this.value)}`;
+
+        const url = new URL(window.location.href);
+        url.searchParams.set("location", this.value);
+        window.location.assign(url.toString());
     });
 }
 
-document.getElementById("zoomIn")?.addEventListener("click", function () {
-    if (map) map.setZoom(map.getZoom() + 1);
-});
+document.getElementById("zoomIn")?.addEventListener("click", () => map?.zoomIn());
+document.getElementById("zoomOut")?.addEventListener("click", () => map?.zoomOut());
 
-document.getElementById("zoomOut")?.addEventListener("click", function () {
-    if (map) map.setZoom(map.getZoom() - 1);
-});
-
-const googleMapsScript = document.createElement("script");
-googleMapsScript.src = "https://maps.googleapis.com/maps/api/js?key=" + GOOGLE_MAPS_API_KEY + "&callback=initMap";
-googleMapsScript.async = true;
-googleMapsScript.defer = true;
-document.head.appendChild(googleMapsScript);
+document.addEventListener("DOMContentLoaded", initMap);
