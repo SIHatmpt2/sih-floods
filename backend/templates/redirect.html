@@ -1,298 +1,97 @@
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <meta
-        name="theme-color"
-        content="#102f50"
-    >
-
-    <title>
-        FloodIntel — Location Intelligence
-    </title>
-
-    <!-- FloodIntel Logo -->
-    <link
-        rel="icon"
-        type="image/png"
-        href="{% static 'images/LOGO.png' %}"
-    >
-
-    <!-- Redirect Page CSS -->
-    <link
-        rel="stylesheet"
-        href="{% static 'css/redirect.css' %}"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#102f50">
+    <title>FloodIntel — Location Intelligence</title>
+    <link rel="icon" type="image/png" href="{% static 'images/LOGO.png' %}">
+    <link rel="stylesheet" href="{% static 'css/redirect.css' %}">
 </head>
-
-
 <body>
-
-
 <div class="page">
-
-
-    <!-- =====================================
-         HEADER
-    ====================================== -->
-
     <header class="header">
-
         <div class="brand">
-
-            <h1>
-                <span class="flood-text">Flood</span><span class="intel-text">Intel</span>
-            </h1>
-
-            <p>
-                Intelligent Flash Flood Prediction &amp; Early Warning
-            </p>
-
+            <h1><span class="flood-text">Flood</span><span class="intel-text">Intel</span></h1>
+            <p>Intelligent Flash Flood Prediction &amp; Early Warning</p>
         </div>
-
     </header>
 
-
-    <!-- =====================================
-         SELECTED LOCATION
-    ====================================== -->
-
     <section class="location-bar">
-
         <div class="location-info">
-
-            <div class="location-label">
-                Selected Location
-            </div>
-
-            <div
-                class="location-name"
-                id="locationName"
-            >
-                Location 1
-            </div>
-
+            <div class="location-label">Selected Location</div>
+            <div class="location-name" id="locationName">{{ location.name }}</div>
         </div>
-
-
-        <a
-            href="/"
-            class="back-button"
-        >
-            ← Back to Locations
-        </a>
-
+        <a href="/" class="back-button">← Back to Locations</a>
     </section>
-
-
-    <!-- =====================================
-         GOOGLE MAP
-    ====================================== -->
 
     <section class="map-section">
-
         <div class="map-container">
-
             <div id="map"></div>
-
-
-            <!-- Custom Zoom Controls -->
-
             <div class="map-controls">
-
-                <button
-                    id="zoomIn"
-                    type="button"
-                    aria-label="Zoom in"
-                >
-                    +
-                </button>
-
-
-                <button
-                    id="zoomOut"
-                    type="button"
-                    aria-label="Zoom out"
-                >
-                    −
-                </button>
-
+                <button id="zoomIn" type="button" aria-label="Zoom in">+</button>
+                <button id="zoomOut" type="button" aria-label="Zoom out">−</button>
             </div>
-
         </div>
-
     </section>
-
-
-    <!-- =====================================
-         LOCATION INTELLIGENCE
-    ====================================== -->
 
     <section class="details-section">
-
-        <div class="details-title">
-            Location Intelligence
-        </div>
-
-
+        <div class="details-title">Location Intelligence</div>
         <div class="details-grid">
-
-
-            <!-- Flood Chances -->
-
-            <div class="info-card">
-
-                <div class="info-label">
-                    Flood Chances
-                </div>
-
-                <div class="info-value">
-                    68%
-                </div>
-
-                <div class="info-subtext">
-                    Estimated probability
-                </div>
-
-            </div>
-
-
-            <!-- Rainfall -->
-
-            <div class="info-card">
-
-                <div class="info-label">
-                    Rainfall Estimation
-                </div>
-
-                <div class="info-value">
-                    124 mm
-                </div>
-
-                <div class="info-subtext">
-                    Expected over next 24 hours
-                </div>
-
-            </div>
-
-
-            <!-- River Level -->
-
-            <div class="info-card">
-
-                <div class="info-label">
-                    River Level
-                </div>
-
-                <div class="info-value">
-                    4.8 m
-                </div>
-
-                <div class="info-subtext">
-                    Current estimated level
-                </div>
-
-            </div>
-
-
-            <!-- Risk Level -->
-
-            <div class="info-card">
-
-                <div class="info-label">
-                    Risk Level
-                </div>
-
-                <div class="info-value">
-                    Moderate
-                </div>
-
-                <div class="info-subtext">
-                    Demonstration assessment
-                </div>
-
-            </div>
-
-
-            <!-- Warning Status -->
-
-            <div class="info-card">
-
-                <div class="info-label">
-                    Warning Status
-                </div>
-
-                <div class="info-value">
-                    Watch
-                </div>
-
-                <div class="info-subtext">
-                    Continue monitoring conditions
-                </div>
-
-            </div>
-
-
+            <div class="info-card"><div class="info-label">Risk Score</div><div class="info-value">{{ risk.risk_score|default:"—" }}</div><div class="info-subtext">Model score (0–100)</div></div>
+            <div class="info-card"><div class="info-label">Risk Level</div><div class="info-value">{{ risk.risk_level|default:"—"|title }}</div><div class="info-subtext">Current model classification</div></div>
+            <div class="info-card"><div class="info-label">Rainfall</div><div class="info-value">{% if weather.rainfall_24h_mm is not None %}{{ weather.rainfall_24h_mm|floatformat:1 }} mm{% else %}—{% endif %}</div><div class="info-subtext">Last 24 hours</div></div>
+            <div class="info-card"><div class="info-label">Temperature</div><div class="info-value">{% if weather.temperature_c is not None %}{{ weather.temperature_c|floatformat:1 }} °C{% else %}—{% endif %}</div><div class="info-subtext">Latest observation</div></div>
+            <div class="info-card"><div class="info-label">Humidity</div><div class="info-value">{% if weather.humidity is not None %}{{ weather.humidity|floatformat:0 }}%{% else %}—{% endif %}</div><div class="info-subtext">Latest observation</div></div>
         </div>
-
     </section>
-
-
-    <!-- =====================================
-         MONITORING STATUS
-    ====================================== -->
 
     <section class="status-section">
-
         <div class="status-content">
-
-
             <div class="status-text">
-
-                <strong>
-                    Monitoring Status
-                </strong>
-
-                <span id="monitoringText">
-                    Live location monitoring enabled
-                </span>
-
+                <strong>Monitoring Status</strong>
+                <span id="monitoringText">{% if weather.data_quality.available %}Live weather data received from {{ weather.data_quality.source|title }}{% else %}Live weather data unavailable; risk result uses available inputs{% endif %}</span>
             </div>
-
-
-            <div class="status-badge">
-                DEMONSTRATION DATA
-            </div>
-
-
+            <div class="status-badge">{{ risk.model_source|default:"baseline" }}</div>
         </div>
-
     </section>
 
+    <section class="details-section">
+        <div class="details-title">Risk Model Output</div>
+        <div class="details-grid">
+            {% for key, value in risk.breakdown.items %}
+            <div class="info-card"><div class="info-label">{{ key|cut:"_"|title }}</div><div class="info-value">{{ value|default:"—" }}</div><div class="info-subtext">Model breakdown</div></div>
+            {% endfor %}
+        </div>
+    </section>
 
+    <section class="details-section">
+        <div class="details-title">Features Used</div>
+        <div class="details-grid">
+            {% for key, value in risk.features.items %}
+            <div class="info-card"><div class="info-label">{{ key|cut:"_"|title }}</div><div class="info-value">{{ value|default:"—" }}</div><div class="info-subtext">Risk model input</div></div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="details-section">
+        <div class="details-title">Weather &amp; Data Quality</div>
+        <div class="details-grid">
+            <div class="info-card"><div class="info-label">Provider</div><div class="info-value">{{ weather.station.provider|default:"—"|title }}</div><div class="info-subtext">Live weather source</div></div>
+            <div class="info-card"><div class="info-label">Station</div><div class="info-value">{{ weather.station.name|default:"—" }}</div><div class="info-subtext">Nearest available observation</div></div>
+            <div class="info-card"><div class="info-label">Observed At</div><div class="info-value">{{ weather.observed_at|default:"—" }}</div><div class="info-subtext">Provider timestamp</div></div>
+            <div class="info-card"><div class="info-label">Data Quality</div><div class="info-value">{% if weather.data_quality.available %}Available{% else %}Unavailable{% endif %}</div><div class="info-subtext">{% if weather.data_quality.age_minutes is not None %}{{ weather.data_quality.age_minutes }} minutes old{% else %}{{ weather.data_quality.reason|default:"No live observation" }}{% endif %}</div></div>
+        </div>
+    </section>
+
+    <section class="details-section">
+        <div class="details-title">Complete Model Data</div>
+        <pre style="white-space:pre-wrap;overflow:auto;">Risk: {{ risk|pprint }}
+
+Weather: {{ weather|pprint }}</pre>
+    </section>
 </div>
-
-
-<!-- =====================================
-     REDIRECT PAGE JAVASCRIPT
-====================================== -->
-
-<script
-    src="{% static 'js/redirect.js' %}"
-></script>
-
-
+<script src="{% static 'js/redirect.js' %}"></script>
 </body>
-
 </html>
