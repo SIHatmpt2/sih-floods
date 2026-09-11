@@ -31,44 +31,8 @@
             <div class="info-card"><div class="info-label">Humidity</div><div class="info-value">{{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}</div><div class="info-subtext">Latest observation · Live weather</div></div>
         </div>
     </section>
-
-    <section class="status-section"><div class="status-content"><div class="status-text"><strong>Monitoring Status</strong><span id="monitoringText">{% if weather.data_quality.available %}Live weather data received from {{ weather.data_quality.source|title }}{% else %}Live weather data unavailable; risk result uses available inputs{% endif %}</span></div><div class="status-badge">{{ risk.model_source|default_if_none:"baseline" }}</div></div></section>
-
-    <section class="details-section">
-        <div class="details-title">Risk Model Output</div>
-        <div class="details-grid">
-            {% for key, value in risk.breakdown.items %}
-            <div class="info-card"><div class="info-label">{{ key|cut:"_"|title }}</div><div class="info-value">{{ value|default_if_none:"—" }}</div><div class="info-subtext">Model breakdown</div></div>
-            {% endfor %}
-        </div>
-    </section>
-
-    <section class="details-section">
-        <div class="details-title">Features Used</div>
-        <div class="details-grid">
-            {% for key, value in risk.features.items %}
-            <div class="info-card"><div class="info-label">{{ key|cut:"_"|title }}</div><div class="info-value">{{ value|default_if_none:"—" }}</div><div class="info-subtext">Risk model input</div></div>
-            {% endfor %}
-        </div>
-    </section>
-
-    <section class="details-section">
-        <div class="details-title">Weather &amp; Data Quality</div>
-        <div class="details-grid">
-            <div class="info-card"><div class="info-label">Provider</div><div class="info-value">{{ weather.station.provider|default_if_none:"—"|title }}</div><div class="info-subtext">Live weather source</div></div>
-            <div class="info-card"><div class="info-label">Station</div><div class="info-value">{{ weather.station.name|default_if_none:"—" }}</div><div class="info-subtext">Nearest available observation</div></div>
-            <div class="info-card"><div class="info-label">Observed At</div><div class="info-value">{{ weather.observed_at|default_if_none:"—" }}</div><div class="info-subtext">Provider timestamp</div></div>
-            <div class="info-card"><div class="info-label">Data Quality</div><div class="info-value">{% if weather.data_quality.available %}Available{% else %}Unavailable{% endif %}</div><div class="info-subtext">{% if weather.data_quality.age_minutes %}{{ weather.data_quality.age_minutes }} minutes old{% else %}{{ weather.data_quality.reason|default_if_none:"No live observation" }}{% endif %}</div></div>
-        </div>
-    </section>
-
-    <section class="details-section">
-        <div class="details-title">Complete Model Data</div>
-        <pre style="white-space:pre-wrap;overflow:auto;">Risk: {{ risk|pprint }}
-
-Weather: {{ weather|pprint }}</pre>
-    </section>
 </div>
+
 {{ locations|json_script:"floodintel-locations" }}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
