@@ -5,6 +5,7 @@ from .views import (
     RiskCurrentView, RiskBreakdownView, RiskSummaryView,
     HighRiskView, RiskHistoryView, RiskAlertListView,
     HotspotListView, RiskAnalyticsView,
+    RiskModelListView, RiskModelArtifactView,
 )
 
 urlpatterns = [
@@ -20,4 +21,6 @@ urlpatterns = [
     path("alerts/", RiskAlertListView.as_view(), name="risk-alerts"),
     path("hotspots/", HotspotListView.as_view(), name="risk-hotspots"),
     path("analytics/", RiskAnalyticsView.as_view(), name="risk-analytics"),
+    path("models/", RiskModelListView.as_view(), name="risk-models"),
+    path("models/<path:filename>", RiskModelArtifactView.as_view(), name="risk-model-artifact"),
 ]
