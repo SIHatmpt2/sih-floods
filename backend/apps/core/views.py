@@ -20,6 +20,7 @@ LOCATIONS = {
     "location7": {"name": "Ladakh", "lat": 34.2, "lng": 77.6},
     "location8": {"name": "Northeast Hills", "lat": 27.0, "lng": 91.0},
     "location9": {"name": "Terai Region", "lat": 29.5, "lng": 80.5},
+    "location10": {"name": "Hamirpur, Himachal Pradesh", "lat": 31.6908, "lng": 76.5177},
 }
 
 
