@@ -26,9 +26,9 @@
         <div class="details-grid">
             <div class="info-card"><div class="info-label">Risk Score</div><div class="info-value">{{ risk.risk_score|default_if_none:"—" }}</div><div class="info-subtext">Model score (0–100)</div></div>
             <div class="info-card"><div class="info-label">Risk Level</div><div class="info-value">{{ risk.risk_level|default_if_none:"—"|title }}</div><div class="info-subtext">Current model classification</div></div>
-            <div class="info-card"><div class="info-label">Rainfall</div><div class="info-value">{{ weather.rainfall_24h_mm|default_if_none:"—" }}{% if weather.rainfall_24h_mm != None %} mm{% endif %}</div><div class="info-subtext">Last 24 hours</div></div>
-            <div class="info-card"><div class="info-label">Temperature</div><div class="info-value">{{ weather.temperature_c|default_if_none:"—" }}{% if weather.temperature_c != None %} °C{% endif %}</div><div class="info-subtext">Latest observation</div></div>
-            <div class="info-card"><div class="info-label">Humidity</div><div class="info-value">{{ weather.humidity|default_if_none:"—" }}{% if weather.humidity != None %}%{% endif %}</div><div class="info-subtext">Latest observation</div></div>
+            <div class="info-card"><div class="info-label">Rainfall</div><div class="info-value">{{ weather_outputs.rainfall_mm|default_if_none:"—" }}{% if weather_outputs.rainfall_mm != None %} mm{% endif %}</div><div class="info-subtext">Last 24 hours · Live weather</div></div>
+            <div class="info-card"><div class="info-label">Temperature</div><div class="info-value">{{ weather_outputs.temperature_c|default_if_none:"—" }}{% if weather_outputs.temperature_c != None %} °C{% endif %}</div><div class="info-subtext">Latest observation · Live weather</div></div>
+            <div class="info-card"><div class="info-label">Humidity</div><div class="info-value">{{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}</div><div class="info-subtext">Latest observation · Live weather</div></div>
         </div>
     </section>
 
