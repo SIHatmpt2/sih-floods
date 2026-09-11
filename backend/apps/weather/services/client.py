@@ -11,12 +11,25 @@ class WeatherProviderClient:
             raise ValueError("timeout must be greater than zero")
         self.timeout = timeout
 
-    def get(self, url: str, *, params: dict | None = None, api_key: str | None = None):
-        query = urlencode({k: v for k, v in (params or {}).items() if v is not None})
-        target = f"{url}{'&' if '?' in url else '?'}{query}" if query else url
+    def get(
+        self,
+        url: str,
+        *,
+        params: dict | None = None,
+        api_key: str | None = None,
+        api_key_param: str | None = None,
+    ):
+        request_params = dict(params or {})
         headers = {"Accept": "application/json", "User-Agent": "SIH-Floods/1.0"}
         if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
+            api_key = api_key.strip()
+            if api_key_param:
+                request_params[api_key_param] = api_key
+            else:
+                headers["Authorization"] = f"Bearer {api_key}"
+
+        query = urlencode({k: v for k, v in request_params.items() if v is not None})
+        target = f"{url}{'&' if '?' in url else '?'}{query}" if query else url
         request = Request(target, headers=headers, method="GET")
         with urlopen(request, timeout=self.timeout) as response:
             raw = response.read().decode("utf-8")
