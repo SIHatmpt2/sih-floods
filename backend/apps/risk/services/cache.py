@@ -1,6 +1,6 @@
 from django.core.cache import cache
 
-KEY_PREFIX = "risk:current"
+KEY_PREFIX = "risk:current:v2"
 TTL_SECONDS = 300
 
 
