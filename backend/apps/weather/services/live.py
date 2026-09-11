@@ -36,8 +36,12 @@ def _distance_km(lat1, lon1, lat2, lon2):
 def _accuweather(client, latitude, longitude, api_key):
     location = client.get(
         f"{ACCUWEATHER_BASE}/locations/v1/cities/geoposition/search",
-        params={"q": f"{latitude:.4f},{longitude:.4f}", "language": "en-us", "toplevel": "true"},
-        api_key=api_key,
+        params={
+            "q": f"{latitude:.4f},{longitude:.4f}",
+            "language": "en-us",
+            "toplevel": "true",
+            "apikey": api_key,
+        },
     )
     key = location.get("Key") if isinstance(location, dict) else None
     if not key:
@@ -45,8 +49,7 @@ def _accuweather(client, latitude, longitude, api_key):
 
     rows = client.get(
         f"{ACCUWEATHER_BASE}/currentconditions/v1/{key}",
-        params={"language": "en-us", "details": "true"},
-        api_key=api_key,
+        params={"language": "en-us", "details": "true", "apikey": api_key},
     )
     if not isinstance(rows, list) or not rows:
         raise ValueError("AccuWeather returned no current conditions")
