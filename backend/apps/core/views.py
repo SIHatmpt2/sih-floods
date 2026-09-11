@@ -23,24 +23,22 @@ LOCATIONS = {
 }
 
 
-def home(request):
-    return render(request, "index.html", {"locations": LOCATIONS})
-
-
 def redirect_result(request):
     location_key = request.GET.get("location", "location1")
     location = LOCATIONS.get(location_key, LOCATIONS["location1"])
     lat, lon = location["lat"], location["lng"]
-
     weather = WeatherService().current(lat, lon)
     risk = RiskService().current(lat, lon)
-
     return render(request, "redirect.html", {
-        "location": location,
-        "location_key": location_key,
-        "weather": weather,
-        "risk": risk,
+        "location": location, "location_key": location_key,
+        "weather": weather, "risk": risk,
     })
+
+
+def home(request):
+    if request.GET.get("location"):
+        return redirect_result(request)
+    return render(request, "index.html", {"locations": LOCATIONS})
 
 
 class DashboardView(APIView):
