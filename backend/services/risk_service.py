@@ -8,9 +8,13 @@ class RiskService:
     """Stable application-facing facade used by Core and other domains."""
 
     def current(self, latitude: float, longitude: float, weather=None) -> dict:
-        cached = cache.get_current(latitude, longitude)
-        if cached:
-            return cached
+        # A caller that supplies live weather must always use it. Do not let
+        # an older cached result bypass the fresh weather payload.
+        if weather is None:
+            cached = cache.get_current(latitude, longitude)
+            if cached:
+                return cached
+
         zone = nearest_zone(latitude, longitude)
         result = assess_point(latitude, longitude, zone=zone, persist=False, weather=weather)
         payload = {
@@ -21,7 +25,11 @@ class RiskService:
             "model_source": result.model_source,
             "data_quality": result.data_quality,
         }
-        cache.set_current(latitude, longitude, payload)
+
+        # Core supplies fresh weather, so do not cache a result that was built
+        # from that request-specific payload as the generic current result.
+        if weather is None:
+            cache.set_current(latitude, longitude, payload)
         return payload
 
     def breakdown(self, latitude: float, longitude: float) -> dict:
