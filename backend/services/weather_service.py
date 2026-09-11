@@ -23,6 +23,34 @@ class WeatherService:
             .first()
         )
 
+    def _format_live(self, row: dict) -> dict:
+        """Return provider data directly without requiring DB persistence."""
+        timestamp = row["timestamp"]
+        max_age = timedelta(minutes=int(getattr(settings, "WEATHER_MAX_AGE_MINUTES", 180)))
+        age_minutes = (timezone.now() - timestamp).total_seconds() / 60
+        return {
+            "station": {
+                "id": None,
+                "station_id": row["station_id"],
+                "name": row["station_name"],
+                "provider": row["provider"],
+            },
+            "observed_at": timestamp,
+            "temperature_c": row.get("temperature_c"),
+            "rainfall_mm": row.get("rainfall_mm"),
+            "rainfall_24h_mm": row.get("rainfall_mm"),
+            "humidity": row.get("humidity"),
+            "water_level_m": row.get("water_level_m"),
+            "discharge_m3s": row.get("discharge_m3s"),
+            "data_quality": {
+                "available": True,
+                "stale": timezone.now() - timestamp > max_age,
+                "age_minutes": round(age_minutes, 1),
+                "source": row["provider"],
+                "persisted": False,
+            },
+        }
+
     def _store_live(self, row: dict) -> dict:
         station, _ = WeatherStation.objects.update_or_create(
             provider=row["provider"], station_id=row["station_id"],
@@ -64,7 +92,12 @@ class WeatherService:
 
     def current(self, latitude: float, longitude: float) -> dict:
         try:
-            return self._store_live(fetch_current(latitude, longitude))
+            row = fetch_current(latitude, longitude)
+            try:
+                return self._store_live(row)
+            except Exception:
+                # Persistence must never hide a successful live provider response.
+                return self._format_live(row)
         except Exception:
             pass
 
