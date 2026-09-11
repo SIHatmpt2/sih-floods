@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
-from backend.apps.risk.services.normalizer import linear_score, risk_level
-from backend.apps.risk.services.risk_engine import score_baseline
+from apps.risk.services.normalizer import linear_score, risk_level
+from apps.risk.services.risk_engine import score_baseline
 
 
 class RiskEngineTests(SimpleTestCase):

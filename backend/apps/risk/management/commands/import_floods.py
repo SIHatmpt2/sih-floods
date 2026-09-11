@@ -2,7 +2,7 @@ import csv
 from datetime import datetime
 from django.core.management.base import BaseCommand, CommandError
 from django.contrib.gis.geos import Point
-from backend.apps.risk.models import FloodEvent
+from apps.risk.models import FloodEvent
 
 
 class Command(BaseCommand):
@@ -32,7 +32,7 @@ class Command(BaseCommand):
 
             for row_number, row in enumerate(reader, start=2):
                 try:
-                    source = f'{options["source-prefix"]}:{row["source"]}'.strip(":")
+                    source = f'{options["source_prefix"]}:{row["source"].strip()}'.strip(":")
                     source_record_id = row.get("id") or str(row_number)
                     event = {
                         "name": row["name"].strip(),
