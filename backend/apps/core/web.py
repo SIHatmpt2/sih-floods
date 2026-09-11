@@ -1,6 +1,3 @@
-from django.shortcuts import render
+from .views import home, redirect_result
 
-
-def home(request):
-    """Render the server-side Django frontend."""
-    return render(request, "index.html")
+__all__ = ["home", "redirect_result"]
