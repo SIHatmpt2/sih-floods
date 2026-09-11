@@ -7,12 +7,12 @@ from apps.risk.services import cache
 class RiskService:
     """Stable application-facing facade used by Core and other domains."""
 
-    def current(self, latitude: float, longitude: float) -> dict:
+    def current(self, latitude: float, longitude: float, weather=None) -> dict:
         cached = cache.get_current(latitude, longitude)
         if cached:
             return cached
         zone = nearest_zone(latitude, longitude)
-        result = assess_point(latitude, longitude, zone=zone, persist=False)
+        result = assess_point(latitude, longitude, zone=zone, persist=False, weather=weather)
         payload = {
             "risk_score": result.score,
             "risk_level": result.level,
