@@ -8,7 +8,7 @@ from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 BACKEND_DIR = BASE_DIR / "backend"
-RISK_MODEL_DIR = BACKEND_DIR / "models"
+RISK_MODEL_DIR = BASE_DIR / "models"
 for _path in (str(BASE_DIR), str(BACKEND_DIR)):
     if _path not in sys.path:
         sys.path.insert(0, _path)
