@@ -76,17 +76,21 @@ DATABASES = {
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/1")
 
+# Live weather providers. AccuWeather is the primary provider; IMD is the fallback.
 WEATHER_PROVIDER_PRIORITY = [
     provider.strip().lower()
-    for provider in os.getenv("WEATHER_PROVIDER_PRIORITY", "imd,cwc").split(",")
+    for provider in os.getenv("WEATHER_PROVIDER_PRIORITY", "accuweather,imd").split(",")
     if provider.strip()
 ]
 WEATHER_MAX_AGE_MINUTES = int(os.getenv("WEATHER_MAX_AGE_MINUTES", "180"))
 WEATHER_API_REQUIRE_AUTH = os.getenv("WEATHER_API_REQUIRE_AUTH", "0") == "1"
 STATE_API_TIMEOUT = int(os.getenv("STATE_API_TIMEOUT", "30"))
 
-IMD_API_URL = os.getenv("IMD_API_URL")
+ACCUWEATHER_API_KEY = os.getenv("ACCUWEATHER_API_KEY")
 IMD_API_KEY = os.getenv("IMD_API_KEY")
+
+# Retained only for backwards-compatible imports; live weather uses provider defaults above.
+IMD_API_URL = os.getenv("IMD_API_URL")
 CWC_API_URL = os.getenv("CWC_API_URL")
 CWC_API_KEY = os.getenv("CWC_API_KEY")
 
