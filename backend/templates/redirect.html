@@ -7,6 +7,7 @@
     <meta name="theme-color" content="#102f50">
     <title>FloodIntel — Location Intelligence</title>
     <link rel="icon" type="image/png" href="{% static 'images/LOGO.png' %}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
     <link rel="stylesheet" href="{% static 'css/redirect.css' %}">
 </head>
 <body>
@@ -68,6 +69,11 @@
 Weather: {{ weather|pprint }}</pre>
     </section>
 </div>
+{{ locations|json_script:"floodintel-locations" }}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+    window.FLOODINTEL_LOCATIONS = JSON.parse(document.getElementById("floodintel-locations").textContent);
+</script>
 <script src="{% static 'js/redirect.js' %}"></script>
 </body>
 </html>
