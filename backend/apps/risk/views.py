@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from django.http import FileResponse, Http404
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -9,6 +12,7 @@ from .serializers import CoordinateQuerySerializer, DaysQuerySerializer, FloodEv
 from .pagination import RiskPagination
 from .selectors import nearby_zones, active_zones
 from .services.analytics import assessment_summary, risk_distribution
+from .services.model_artifacts import list_model_artifacts, resolve_model_artifact
 
 
 class FloodEventListView(ListAPIView):
@@ -95,3 +99,35 @@ class RiskAnalyticsView(APIView):
     permission_classes = [RiskAPIPermission]
     def get(self, request):
         return Response({"distribution": risk_distribution(), "summary": assessment_summary(days=7)})
+
+
+class RiskModelListView(APIView):
+    permission_classes = [RiskAPIPermission]
+
+    def get(self, request):
+        artifacts = list_model_artifacts()
+        return Response({
+            "models": [
+                {
+                    "name": artifact.name,
+                    "url": request.build_absolute_uri(f"/api/risk/models/{artifact.name}"),
+                    "size": artifact.stat().st_size,
+                }
+                for artifact in artifacts
+            ]
+        })
+
+
+class RiskModelArtifactView(APIView):
+    permission_classes = [RiskAPIPermission]
+
+    def get(self, request, filename):
+        artifact = resolve_model_artifact(filename)
+        if artifact.suffix.lower() != ".json":
+            raise Http404("Model artifact not found")
+        return FileResponse(
+            artifact.open("rb"),
+            content_type="application/json",
+            as_attachment=False,
+            filename=Path(filename).name,
+        )
