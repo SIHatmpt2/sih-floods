@@ -38,7 +38,9 @@ def redirect_result(request):
         "humidity": weather.get("humidity"),
     }
 
-    risk = RiskService().current(lat, lon)
+    # Reuse the exact live weather response for the risk model instead of
+    # making a second provider request for the selected location.
+    risk = RiskService().current(lat, lon, weather=weather)
     return render(request, "redirect.html", {
         "location": location,
         "location_key": location_key,
