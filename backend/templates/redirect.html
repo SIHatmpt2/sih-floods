@@ -11,57 +11,33 @@
 </head>
 <body>
 <div class="page">
-    <header class="header">
-        <div class="brand">
-            <h1><span class="flood-text">Flood</span><span class="intel-text">Intel</span></h1>
-            <p>Intelligent Flash Flood Prediction &amp; Early Warning</p>
-        </div>
-    </header>
+    <header class="header"><div class="brand"><h1><span class="flood-text">Flood</span><span class="intel-text">Intel</span></h1><p>Intelligent Flash Flood Prediction &amp; Early Warning</p></div></header>
 
     <section class="location-bar">
-        <div class="location-info">
-            <div class="location-label">Selected Location</div>
-            <div class="location-name" id="locationName">{{ location.name }}</div>
-        </div>
+        <div class="location-info"><div class="location-label">Selected Location</div><div class="location-name" id="locationName">{{ location.name }}</div></div>
         <a href="/" class="back-button">← Back to Locations</a>
     </section>
 
-    <section class="map-section">
-        <div class="map-container">
-            <div id="map"></div>
-            <div class="map-controls">
-                <button id="zoomIn" type="button" aria-label="Zoom in">+</button>
-                <button id="zoomOut" type="button" aria-label="Zoom out">−</button>
-            </div>
-        </div>
-    </section>
+    <section class="map-section"><div class="map-container"><div id="map"></div><div class="map-controls"><button id="zoomIn" type="button" aria-label="Zoom in">+</button><button id="zoomOut" type="button" aria-label="Zoom out">−</button></div></div></section>
 
     <section class="details-section">
         <div class="details-title">Location Intelligence</div>
         <div class="details-grid">
-            <div class="info-card"><div class="info-label">Risk Score</div><div class="info-value">{{ risk.risk_score|default:"—" }}</div><div class="info-subtext">Model score (0–100)</div></div>
-            <div class="info-card"><div class="info-label">Risk Level</div><div class="info-value">{{ risk.risk_level|default:"—"|title }}</div><div class="info-subtext">Current model classification</div></div>
-            <div class="info-card"><div class="info-label">Rainfall</div><div class="info-value">{% if weather.rainfall_24h_mm is not None %}{{ weather.rainfall_24h_mm|floatformat:1 }} mm{% else %}—{% endif %}</div><div class="info-subtext">Last 24 hours</div></div>
-            <div class="info-card"><div class="info-label">Temperature</div><div class="info-value">{% if weather.temperature_c is not None %}{{ weather.temperature_c|floatformat:1 }} °C{% else %}—{% endif %}</div><div class="info-subtext">Latest observation</div></div>
-            <div class="info-card"><div class="info-label">Humidity</div><div class="info-value">{% if weather.humidity is not None %}{{ weather.humidity|floatformat:0 }}%{% else %}—{% endif %}</div><div class="info-subtext">Latest observation</div></div>
+            <div class="info-card"><div class="info-label">Risk Score</div><div class="info-value">{{ risk.risk_score|default_if_none:"—" }}</div><div class="info-subtext">Model score (0–100)</div></div>
+            <div class="info-card"><div class="info-label">Risk Level</div><div class="info-value">{{ risk.risk_level|default_if_none:"—"|title }}</div><div class="info-subtext">Current model classification</div></div>
+            <div class="info-card"><div class="info-label">Rainfall</div><div class="info-value">{{ weather.rainfall_24h_mm|default_if_none:"—" }}{% if weather.rainfall_24h_mm != None %} mm{% endif %}</div><div class="info-subtext">Last 24 hours</div></div>
+            <div class="info-card"><div class="info-label">Temperature</div><div class="info-value">{{ weather.temperature_c|default_if_none:"—" }}{% if weather.temperature_c != None %} °C{% endif %}</div><div class="info-subtext">Latest observation</div></div>
+            <div class="info-card"><div class="info-label">Humidity</div><div class="info-value">{{ weather.humidity|default_if_none:"—" }}{% if weather.humidity != None %}%{% endif %}</div><div class="info-subtext">Latest observation</div></div>
         </div>
     </section>
 
-    <section class="status-section">
-        <div class="status-content">
-            <div class="status-text">
-                <strong>Monitoring Status</strong>
-                <span id="monitoringText">{% if weather.data_quality.available %}Live weather data received from {{ weather.data_quality.source|title }}{% else %}Live weather data unavailable; risk result uses available inputs{% endif %}</span>
-            </div>
-            <div class="status-badge">{{ risk.model_source|default:"baseline" }}</div>
-        </div>
-    </section>
+    <section class="status-section"><div class="status-content"><div class="status-text"><strong>Monitoring Status</strong><span id="monitoringText">{% if weather.data_quality.available %}Live weather data received from {{ weather.data_quality.source|title }}{% else %}Live weather data unavailable; risk result uses available inputs{% endif %}</span></div><div class="status-badge">{{ risk.model_source|default_if_none:"baseline" }}</div></div></section>
 
     <section class="details-section">
         <div class="details-title">Risk Model Output</div>
         <div class="details-grid">
             {% for key, value in risk.breakdown.items %}
-            <div class="info-card"><div class="info-label">{{ key|cut:"_"|title }}</div><div class="info-value">{{ value|default:"—" }}</div><div class="info-subtext">Model breakdown</div></div>
+            <div class="info-card"><div class="info-label">{{ key|cut:"_"|title }}</div><div class="info-value">{{ value|default_if_none:"—" }}</div><div class="info-subtext">Model breakdown</div></div>
             {% endfor %}
         </div>
     </section>
@@ -70,7 +46,7 @@
         <div class="details-title">Features Used</div>
         <div class="details-grid">
             {% for key, value in risk.features.items %}
-            <div class="info-card"><div class="info-label">{{ key|cut:"_"|title }}</div><div class="info-value">{{ value|default:"—" }}</div><div class="info-subtext">Risk model input</div></div>
+            <div class="info-card"><div class="info-label">{{ key|cut:"_"|title }}</div><div class="info-value">{{ value|default_if_none:"—" }}</div><div class="info-subtext">Risk model input</div></div>
             {% endfor %}
         </div>
     </section>
@@ -78,10 +54,10 @@
     <section class="details-section">
         <div class="details-title">Weather &amp; Data Quality</div>
         <div class="details-grid">
-            <div class="info-card"><div class="info-label">Provider</div><div class="info-value">{{ weather.station.provider|default:"—"|title }}</div><div class="info-subtext">Live weather source</div></div>
-            <div class="info-card"><div class="info-label">Station</div><div class="info-value">{{ weather.station.name|default:"—" }}</div><div class="info-subtext">Nearest available observation</div></div>
-            <div class="info-card"><div class="info-label">Observed At</div><div class="info-value">{{ weather.observed_at|default:"—" }}</div><div class="info-subtext">Provider timestamp</div></div>
-            <div class="info-card"><div class="info-label">Data Quality</div><div class="info-value">{% if weather.data_quality.available %}Available{% else %}Unavailable{% endif %}</div><div class="info-subtext">{% if weather.data_quality.age_minutes is not None %}{{ weather.data_quality.age_minutes }} minutes old{% else %}{{ weather.data_quality.reason|default:"No live observation" }}{% endif %}</div></div>
+            <div class="info-card"><div class="info-label">Provider</div><div class="info-value">{{ weather.station.provider|default_if_none:"—"|title }}</div><div class="info-subtext">Live weather source</div></div>
+            <div class="info-card"><div class="info-label">Station</div><div class="info-value">{{ weather.station.name|default_if_none:"—" }}</div><div class="info-subtext">Nearest available observation</div></div>
+            <div class="info-card"><div class="info-label">Observed At</div><div class="info-value">{{ weather.observed_at|default_if_none:"—" }}</div><div class="info-subtext">Provider timestamp</div></div>
+            <div class="info-card"><div class="info-label">Data Quality</div><div class="info-value">{% if weather.data_quality.available %}Available{% else %}Unavailable{% endif %}</div><div class="info-subtext">{% if weather.data_quality.age_minutes %}{{ weather.data_quality.age_minutes }} minutes old{% else %}{{ weather.data_quality.reason|default_if_none:"No live observation" }}{% endif %}</div></div>
         </div>
     </section>
 
