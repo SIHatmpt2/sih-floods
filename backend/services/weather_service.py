@@ -8,10 +8,11 @@ from django.contrib.gis.geos import Point
 from django.utils import timezone
 
 from apps.weather.models import WeatherObservation, WeatherStation
+from apps.weather.services.live import fetch_current
 
 
 class WeatherService:
-    """Read normalized weather observations; external refresh runs in Celery."""
+    """Provide normalized current weather, refreshing from live providers first."""
 
     def _nearest_station(self, latitude: float, longitude: float):
         point = Point(float(longitude), float(latitude), srid=4326)
@@ -22,34 +23,66 @@ class WeatherService:
             .first()
         )
 
-    def current(self, latitude: float, longitude: float) -> dict:
-        station = self._nearest_station(latitude, longitude)
-        if station is None:
-            return {"station": None, "observed_at": None, "temperature_c": None, "rainfall_mm": None,
-                    "humidity": None, "water_level_m": None, "discharge_m3s": None,
-                    "data_quality": {"available": False, "reason": "no_nearby_station"}}
+    def _store_live(self, row: dict) -> dict:
+        station, _ = WeatherStation.objects.update_or_create(
+            provider=row["provider"], station_id=row["station_id"],
+            defaults={
+                "name": row["station_name"], "state": row.get("state", ""),
+                "district": row.get("district", ""),
+                "location": Point(row["longitude"], row["latitude"], srid=4326),
+                "active": True,
+            },
+        )
+        observation, _ = WeatherObservation.objects.update_or_create(
+            station=station, timestamp=row["timestamp"],
+            defaults={
+                "rainfall_mm": row.get("rainfall_mm"),
+                "temperature_c": row.get("temperature_c"),
+                "humidity": row.get("humidity"),
+                "water_level_m": row.get("water_level_m"),
+                "discharge_m3s": row.get("discharge_m3s"),
+            },
+        )
+        return self._format(station, observation)
 
-        observation = station.observations.order_by("-timestamp").first()
-        if observation is None:
-            return {"station": {"id": station.id, "station_id": station.station_id, "name": station.name,
-                                 "provider": station.provider},
-                    "observed_at": None, "temperature_c": None, "rainfall_mm": None,
-                    "humidity": None, "water_level_m": None, "discharge_m3s": None,
-                    "data_quality": {"available": False, "reason": "no_observation"}}
-
+    def _format(self, station, observation) -> dict:
         max_age = timedelta(minutes=int(getattr(settings, "WEATHER_MAX_AGE_MINUTES", 180)))
-        stale = timezone.now() - observation.timestamp > max_age
+        age_minutes = (timezone.now() - observation.timestamp).total_seconds() / 60
         return {
-            "station": {"id": station.id, "station_id": station.station_id, "name": station.name,
-                        "provider": station.provider},
+            "station": {"id": station.id, "station_id": station.station_id,
+                        "name": station.name, "provider": station.provider},
             "observed_at": observation.timestamp,
             "temperature_c": observation.temperature_c,
             "rainfall_mm": observation.rainfall_mm,
+            "rainfall_24h_mm": observation.rainfall_mm,
             "humidity": observation.humidity,
             "water_level_m": observation.water_level_m,
             "discharge_m3s": observation.discharge_m3s,
-            "data_quality": {"available": True, "stale": stale, "age_minutes": round((timezone.now() - observation.timestamp).total_seconds() / 60, 1)},
+            "data_quality": {"available": True, "stale": timezone.now() - observation.timestamp > max_age,
+                             "age_minutes": round(age_minutes, 1), "source": station.provider},
         }
+
+    def current(self, latitude: float, longitude: float) -> dict:
+        try:
+            return self._store_live(fetch_current(latitude, longitude))
+        except Exception:
+            pass
+
+        station = self._nearest_station(latitude, longitude)
+        if station is None:
+            return {"station": None, "observed_at": None, "temperature_c": None,
+                    "rainfall_mm": None, "rainfall_24h_mm": None, "humidity": None,
+                    "water_level_m": None, "discharge_m3s": None,
+                    "data_quality": {"available": False, "reason": "no_live_provider_or_nearby_station"}}
+        observation = station.observations.order_by("-timestamp").first()
+        if observation is None:
+            return {"station": {"id": station.id, "station_id": station.station_id,
+                                 "name": station.name, "provider": station.provider},
+                    "observed_at": None, "temperature_c": None, "rainfall_mm": None,
+                    "rainfall_24h_mm": None, "humidity": None, "water_level_m": None,
+                    "discharge_m3s": None,
+                    "data_quality": {"available": False, "reason": "no_observation"}}
+        return self._format(station, observation)
 
     def history(self, latitude: float, longitude: float, days: int = 7) -> list[dict]:
         station = self._nearest_station(latitude, longitude)
