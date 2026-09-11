@@ -1,11 +1,46 @@
+from django.shortcuts import render
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from services.core_service import CoreService
+from services.risk_service import RiskService
+from services.weather_service import WeatherService
 from .serializers import CoordinateQuerySerializer, NotificationRecordSerializer, UserLocationSerializer
 
 service = CoreService()
+
+LOCATIONS = {
+    "location1": {"name": "Assam Floodplain", "lat": 26.2, "lng": 92.9},
+    "location2": {"name": "Arunachal Pradesh", "lat": 28.2, "lng": 94.7},
+    "location3": {"name": "Sikkim", "lat": 27.5, "lng": 88.5},
+    "location4": {"name": "Nainital, Uttarakhand", "lat": 29.3919, "lng": 79.4542},
+    "location5": {"name": "Himachal Pradesh", "lat": 31.8, "lng": 77.2},
+    "location6": {"name": "Jammu & Kashmir", "lat": 33.4, "lng": 75.3},
+    "location7": {"name": "Ladakh", "lat": 34.2, "lng": 77.6},
+    "location8": {"name": "Northeast Hills", "lat": 27.0, "lng": 91.0},
+    "location9": {"name": "Terai Region", "lat": 29.5, "lng": 80.5},
+}
+
+
+def home(request):
+    return render(request, "index.html", {"locations": LOCATIONS})
+
+
+def redirect_result(request):
+    location_key = request.GET.get("location", "location1")
+    location = LOCATIONS.get(location_key, LOCATIONS["location1"])
+    lat, lon = location["lat"], location["lng"]
+
+    weather = WeatherService().current(lat, lon)
+    risk = RiskService().current(lat, lon)
+
+    return render(request, "redirect.html", {
+        "location": location,
+        "location_key": location_key,
+        "weather": weather,
+        "risk": risk,
+    })
 
 
 class DashboardView(APIView):
