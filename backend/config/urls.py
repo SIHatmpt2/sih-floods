@@ -3,7 +3,7 @@ from __future__ import annotations
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from apps.core import health
-from apps.core.web import home
+from apps.core.views import home
 
 urlpatterns = [
     path("", home, name="home"),
