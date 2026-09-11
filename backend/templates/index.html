@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FloodIntel — Intelligent Flash Flood Prediction & Early Warning</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <link rel="icon" type="image/png" href="{% static 'images/LOGO.png' %}">
 </head>
@@ -48,6 +49,11 @@
         </div></section>
     </main>
 </div>
+{{ locations|json_script:"floodintel-locations" }}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+    window.FLOODINTEL_LOCATIONS = JSON.parse(document.getElementById("floodintel-locations").textContent);
+</script>
 <script src="{% static 'js/script.js' %}"></script>
 </body>
 </html>
