@@ -30,8 +30,11 @@ def redirect_result(request):
     weather = WeatherService().current(lat, lon)
     risk = RiskService().current(lat, lon)
     return render(request, "redirect.html", {
-        "location": location, "location_key": location_key,
-        "weather": weather, "risk": risk,
+        "location": location,
+        "location_key": location_key,
+        "locations": LOCATIONS,
+        "weather": weather,
+        "risk": risk,
     })
 
 
