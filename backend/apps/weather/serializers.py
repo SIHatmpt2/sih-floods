@@ -15,6 +15,7 @@ class WeatherCurrentSerializer(serializers.Serializer):
     observed_at = serializers.DateTimeField(allow_null=True)
     temperature_c = serializers.FloatField(allow_null=True)
     rainfall_mm = serializers.FloatField(allow_null=True)
+    rainfall_24h_mm = serializers.FloatField(allow_null=True)
     humidity = serializers.FloatField(allow_null=True)
     water_level_m = serializers.FloatField(allow_null=True)
     discharge_m3s = serializers.FloatField(allow_null=True)
