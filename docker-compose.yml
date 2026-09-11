@@ -5,15 +5,15 @@ services:
     container_name: flood_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-flood_db}
+      POSTGRES_USER: ${POSTGRES_USER:-flood_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flood_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-flood_user} -d ${POSTGRES_DB:-flood_db}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -31,8 +31,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-flood_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-flood_minio_password}
     volumes:
       - minio_data:/data
     ports:
@@ -47,6 +47,14 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-flood_db}
+      POSTGRES_USER: ${POSTGRES_USER:-flood_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flood_password}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     volumes:
       - ./backend:/app
     ports:
@@ -65,6 +73,14 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-flood_db}
+      POSTGRES_USER: ${POSTGRES_USER:-flood_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flood_password}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     command: celery -A config.celery worker --loglevel=info
     volumes:
       - ./backend:/app
