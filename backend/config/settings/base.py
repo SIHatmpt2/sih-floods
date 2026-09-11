@@ -8,6 +8,7 @@ from typing import Any
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 BACKEND_DIR = BASE_DIR / "backend"
+RISK_MODEL_DIR = BACKEND_DIR / "models"
 for _path in (str(BASE_DIR), str(BACKEND_DIR)):
     if _path not in sys.path:
         sys.path.insert(0, _path)
@@ -69,6 +70,6 @@ WEATHER_MAX_AGE_MINUTES = int(os.environ.get("WEATHER_MAX_AGE_MINUTES", "180"))
 WEATHER_API_REQUIRE_AUTH = env_bool("WEATHER_API_REQUIRE_AUTH", False)
 RISK_API_REQUIRE_AUTH = env_bool("RISK_API_REQUIRE_AUTH", False)
 RISK_XGBOOST_MODEL_PATH = os.environ.get("RISK_XGBOOST_MODEL_PATH", "") or None
-RISK_JSON_MODEL_PATH = os.environ.get("RISK_JSON_MODEL_PATH", "") or str(BASE_DIR / "backend" / "models" / "flood_risk_v1.json")
+RISK_JSON_MODEL_PATH = os.environ.get("RISK_JSON_MODEL_PATH", "") or str(RISK_MODEL_DIR / "flood_risk_v1.json")
 RISK_TERRAIN_SOURCE = os.environ.get("RISK_TERRAIN_SOURCE", "unconfigured")
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
