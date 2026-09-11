@@ -27,13 +27,23 @@ def redirect_result(request):
     location_key = request.GET.get("location", "location1")
     location = LOCATIONS.get(location_key, LOCATIONS["location1"])
     lat, lon = location["lat"], location["lng"]
+
+    # Fetch the three live weather outputs from the Weather app/service once
+    # and pass the normalized values directly to the result template.
     weather = WeatherService().current(lat, lon)
+    weather_outputs = {
+        "rainfall_mm": weather.get("rainfall_24h_mm", weather.get("rainfall_mm")),
+        "temperature_c": weather.get("temperature_c"),
+        "humidity": weather.get("humidity"),
+    }
+
     risk = RiskService().current(lat, lon)
     return render(request, "redirect.html", {
         "location": location,
         "location_key": location_key,
         "locations": LOCATIONS,
         "weather": weather,
+        "weather_outputs": weather_outputs,
         "risk": risk,
     })
 
