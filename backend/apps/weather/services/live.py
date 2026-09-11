@@ -36,12 +36,9 @@ def _distance_km(lat1, lon1, lat2, lon2):
 def _accuweather(client, latitude, longitude, api_key):
     location = client.get(
         f"{ACCUWEATHER_BASE}/locations/v1/cities/geoposition/search",
-        params={
-            "q": f"{latitude:.4f},{longitude:.4f}",
-            "language": "en-us",
-            "toplevel": "true",
-            "apikey": api_key,
-        },
+        params={"q": f"{latitude:.4f},{longitude:.4f}", "language": "en-us", "toplevel": "true"},
+        api_key=api_key,
+        api_key_param="apikey",
     )
     key = location.get("Key") if isinstance(location, dict) else None
     if not key:
@@ -49,14 +46,20 @@ def _accuweather(client, latitude, longitude, api_key):
 
     rows = client.get(
         f"{ACCUWEATHER_BASE}/currentconditions/v1/{key}",
-        params={"language": "en-us", "details": "true", "apikey": api_key},
+        params={"language": "en-us", "details": "true"},
+        api_key=api_key,
+        api_key_param="apikey",
     )
     if not isinstance(rows, list) or not rows:
         raise ValueError("AccuWeather returned no current conditions")
+
     row = rows[0]
     metric = (row.get("Temperature") or {}).get("Metric") or {}
-    rain = (((row.get("PrecipitationSummary") or {}).get("Past24Hours") or {}).get("Metric") or {}).get("Value")
+    precipitation = row.get("PrecipitationSummary") or {}
+    past_24h = precipitation.get("Past24Hours") or {}
+    rain_metric = past_24h.get("Metric") or {}
     position = location.get("GeoPosition") or {}
+
     return {
         "provider": "accuweather",
         "station_id": f"accuweather:{key}",
@@ -66,7 +69,7 @@ def _accuweather(client, latitude, longitude, api_key):
         "latitude": _number(position.get("Latitude")) or latitude,
         "longitude": _number(position.get("Longitude")) or longitude,
         "timestamp": _parse_time(row.get("LocalObservationDateTime")),
-        "rainfall_mm": _number(rain),
+        "rainfall_mm": _number(rain_metric.get("Value")),
         "temperature_c": _number(metric.get("Value")),
         "humidity": _number(row.get("RelativeHumidity")),
         "water_level_m": None,
@@ -118,14 +121,17 @@ def _imd(client, latitude, longitude, api_key):
 def fetch_current(latitude: float, longitude: float) -> dict:
     client = WeatherProviderClient(timeout=getattr(settings, "STATE_API_TIMEOUT", 30))
     errors = []
-    for provider in ("accuweather", "imd"):
+    priority = getattr(settings, "WEATHER_PROVIDER_PRIORITY", ["accuweather", "imd"])
+    for provider in priority:
+        provider = provider.strip().lower()
         key = getattr(settings, f"{provider.upper()}_API_KEY", None)
         if not key:
             continue
         try:
             if provider == "accuweather":
                 return _accuweather(client, latitude, longitude, key)
-            return _imd(client, latitude, longitude, key)
+            if provider == "imd":
+                return _imd(client, latitude, longitude, key)
         except Exception as exc:
             errors.append(f"{provider}: {exc}")
     raise RuntimeError("No live weather provider succeeded: " + "; ".join(errors))
