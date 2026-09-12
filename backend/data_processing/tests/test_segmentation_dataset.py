@@ -29,12 +29,13 @@ class SegmentationDatasetTests(unittest.TestCase):
             images.mkdir()
             masks.mkdir()
 
+            mask_values = [0, 1, 127, 255, 0, 255, 1, 127, 0, 255]
             for index in range(4):
                 self._write_image(images / f"scene-{index}.jpg", 40 + index)
-                self._write_mask(masks / f"scene-{index}_mask.png", [[0, 1, 127, 255] * 2] * 8)
+                self._write_mask(masks / f"scene-{index}_mask.png", [mask_values] * 8)
 
             (images / "scene-0-duplicate.jpg").write_bytes((images / "scene-0.jpg").read_bytes())
-            self._write_mask(masks / "scene-0-duplicate_mask.png", [[0] * 8] * 8)
+            self._write_mask(masks / "scene-0-duplicate_mask.png", [[0] * 10] * 8)
 
             summary = prepare_dataset(images, masks, output, seed=7)
 
