@@ -33,10 +33,6 @@ staticfiles/
 *.ckpt
 *.safetensors
 
-# Data
-data/raw/
-data/processed/
-
 # Geospatial / raster outputs
 *.tif
 *.tiff
