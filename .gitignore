@@ -33,6 +33,10 @@ staticfiles/
 *.ckpt
 *.safetensors
 
+# Data
+# Raw labeled flood imagery/masks are tracked.
+data/processed/
+
 # Geospatial / raster outputs
 *.tif
 *.tiff
@@ -56,6 +60,9 @@ docker-data/
 
 # Node
 node_modules/
+npm-debug.log*
+yarn.lock
+auto-generated-do-not-use
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
