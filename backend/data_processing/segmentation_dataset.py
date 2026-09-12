@@ -121,11 +121,19 @@ def _split_samples(images: list[Path], seed: int) -> dict[str, list[Path]]:
         key=lambda path: hashlib.sha256(f"{seed}:{_content_hash(path)}".encode()).hexdigest(),
     )
     n = len(ordered)
-    raw = {name: n * ratio for name, ratio in SPLIT_RATIOS.items()}
-    counts = {name: int(value) for name, value in raw.items()}
-    remainder = n - sum(counts.values())
-    for name in sorted(raw, key=lambda key: (-(raw[key] - counts[key]), key))[:remainder]:
-        counts[name] += 1
+    if n == 1:
+        counts = {"train": 1, "val": 0, "test": 0}
+    elif n == 2:
+        counts = {"train": 1, "val": 1, "test": 0}
+    else:
+        val_count = max(1, round(n * SPLIT_RATIOS["val"]))
+        test_count = max(1, round(n * SPLIT_RATIOS["test"]))
+        counts = {
+            "train": n - val_count - test_count,
+            "val": val_count,
+            "test": test_count,
+        }
+
     train_end = counts["train"]
     val_end = train_end + counts["val"]
     return {
@@ -216,7 +224,9 @@ def prepare_dataset(
     records: list[dict] = []
     for split, split_images in split_paths.items():
         for image in split_images:
-            record = _prepare_one(image, pair_by_image[image], output_dir / split, output_dir)
+            record = _prepare_one(
+                image, pair_by_image[image], output_dir / split, output_dir
+            )
             record["split"] = split
             records.append(record)
 
