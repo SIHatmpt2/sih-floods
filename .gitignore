@@ -61,9 +61,6 @@ docker-data/
 # Node
 node_modules/
 npm-debug.log*
-yarn-debug.log*
+yarn-debug.lock
+yarn.lock
 pnpm-debug.log*
-
-# Build
-dist/
-build/
