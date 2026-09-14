@@ -1,0 +1,13 @@
+{
+  "reason": "Completely black masks require manual annotation review before U-Net training.",
+  "samples": [
+    "05ffdcc0-226a-4417-b8c9-273be131e2ab",
+    "24fa1017-072d-4dc3-8f63-d4854514bb4d",
+    "3f16cb74-b454-4363-a0a2-caaae29cc467",
+    "46d22790-f39f-4d0b-826f-4292cfdcf418",
+    "6a107f0d-bfd2-4647-9a6d-c185ad90d08e",
+    "7b037969-34be-4e71-8bce-1358a7ea632e",
+    "9bcff905-99e2-401f-914f-132ccff7993a",
+    "9f338cbe-0dea-43f7-b782-2de7347c5dfd"
+  ]
+}
