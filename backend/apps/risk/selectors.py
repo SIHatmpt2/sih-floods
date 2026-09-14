@@ -22,8 +22,7 @@ def nearest_safe_zone(latitude, longitude, radius_km=50.0):
                 risk_level__in=["low", "moderate"],
                 geometry__distance_lte=(p, radius_km * 1000),
             )
-            .annotate(distance=Distance("geometry", p))
-            .order_by("latest_score", "distance")
+            .annotate(distance=Distance("geometry", p)).order_by("latest_score", "distance")
             .first())
 
 
@@ -50,11 +49,15 @@ def assessment_history(latitude, longitude, days=7):
             .annotate(distance=Distance("location", p)).order_by("-observed_at"))
 
 
-def recent_flood_events(latitude, longitude, radius_km=50.0, days=3650):
+def recent_flood_events(latitude, longitude, radius_km=50.0, days=3650, end_date=None):
     p = to_point(latitude, longitude)
-    since = timezone.now().date() - timedelta(days=days)
-    return (FloodEvent.objects.filter(location__distance_lte=(p, radius_km * 1000), event_date__gte=since)
-            .annotate(distance=Distance("location", p)).order_by("distance", "-event_date"))
+    end_date = end_date or timezone.now().date()
+    since = end_date - timedelta(days=days)
+    return (FloodEvent.objects.filter(
+        location__distance_lte=(p, radius_km * 1000),
+        event_date__gte=since,
+        event_date__lte=end_date,
+    ).annotate(distance=Distance("location", p)).order_by("distance", "-event_date"))
 
 
 def open_alerts():
