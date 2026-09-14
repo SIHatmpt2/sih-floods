@@ -11,8 +11,9 @@ from django.core.cache import cache
 
 HISTORICAL_FORECAST_API = "https://historical-forecast-api.open-meteo.com/v1/forecast"
 ARCHIVE_API = "https://archive-api.open-meteo.com/v1/archive"
-HISTORICAL_FORECAST_START_YEAR = 2024
+HISTORICAL_FORECAST_START_YEAR = 2022
 HISTORICAL_REQUEST_TIMEOUT_SECONDS = 12
+RECENT_HISTORICAL_DAYS = 5
 
 
 class HistoricalWeatherError(RuntimeError):
@@ -22,16 +23,21 @@ class HistoricalWeatherError(RuntimeError):
 class HistoricalWeatherService:
     """Fetch historical hourly weather for a requested date.
 
-    The Historical Forecast API is preferred for recent dates from 2024 onward.
-    Older dates use the ERA5 archive directly because it provides gap-free
-    historical coverage back to 1940. If the Historical Forecast API is slow
-    or unavailable, ERA5 is used as a fallback so a valid date does not stall
-    the analysis indefinitely.
+    ERA5 is the reliable source for older dates because it provides global,
+    gap-free historical coverage back to 1940. For the most recent five past
+    days, the Historical Forecast API is preferred because ERA5 has a normal
+    five-day publication delay. If the recent forecast archive is unavailable,
+    the service falls back to ERA5.
     """
 
     @staticmethod
     def analysis_window(analysis_date: date) -> tuple[date, date]:
         return analysis_date - timedelta(days=6), analysis_date
+
+    @staticmethod
+    def _uses_recent_forecast(analysis_date: date) -> bool:
+        cutoff = date.today() - timedelta(days=RECENT_HISTORICAL_DAYS - 1)
+        return analysis_date >= cutoff and analysis_date.year >= HISTORICAL_FORECAST_START_YEAR
 
     def for_date(self, latitude: float, longitude: float, analysis_date: date) -> dict:
         cache_key = (
@@ -57,7 +63,7 @@ class HistoricalWeatherService:
             "precipitation_unit": "mm",
         }
 
-        if analysis_date.year >= HISTORICAL_FORECAST_START_YEAR:
+        if self._uses_recent_forecast(analysis_date):
             try:
                 payload = self._request(HISTORICAL_FORECAST_API, common)
                 result = self._build_result(
