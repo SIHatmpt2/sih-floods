@@ -11,6 +11,8 @@ from django.core.cache import cache
 
 HISTORICAL_FORECAST_API = "https://historical-forecast-api.open-meteo.com/v1/forecast"
 ARCHIVE_API = "https://archive-api.open-meteo.com/v1/archive"
+HISTORICAL_FORECAST_START_YEAR = 2024
+HISTORICAL_REQUEST_TIMEOUT_SECONDS = 12
 
 
 class HistoricalWeatherError(RuntimeError):
@@ -20,11 +22,11 @@ class HistoricalWeatherError(RuntimeError):
 class HistoricalWeatherService:
     """Fetch historical hourly weather for a requested date.
 
-    For dates from 2022 onward we use Open-Meteo's Historical Forecast API,
-    because it exposes precipitation, rain, wind and pressure together and is
-    specifically intended for recent historical reconstruction. For older
-    dates we fall back to the ERA5 archive, which supports those variables.
-    Neither endpoint requires an API key for normal non-commercial use.
+    The Historical Forecast API is preferred for recent dates from 2024 onward.
+    Older dates use the ERA5 archive directly because it provides gap-free
+    historical coverage back to 1940. If the Historical Forecast API is slow
+    or unavailable, ERA5 is used as a fallback so a valid date does not stall
+    the analysis indefinitely.
     """
 
     @staticmethod
@@ -55,24 +57,60 @@ class HistoricalWeatherService:
             "precipitation_unit": "mm",
         }
 
-        if analysis_date.year >= 2022:
-            endpoint = HISTORICAL_FORECAST_API
-            params = common
-            source = "open-meteo-historical-forecast"
-            dataset = "Open-Meteo Historical Forecast"
+        if analysis_date.year >= HISTORICAL_FORECAST_START_YEAR:
+            try:
+                payload = self._request(HISTORICAL_FORECAST_API, common)
+                result = self._build_result(
+                    payload,
+                    analysis_date,
+                    source="open-meteo-historical-forecast",
+                    dataset="Open-Meteo Historical Forecast",
+                )
+            except (
+                HTTPError,
+                URLError,
+                TimeoutError,
+                OSError,
+                ValueError,
+                HistoricalWeatherError,
+            ):
+                result = self._from_era5(common, analysis_date)
         else:
-            endpoint = ARCHIVE_API
-            params = {**common, "models": "era5"}
-            source = "open-meteo-era5"
-            dataset = "ERA5 reanalysis"
+            result = self._from_era5(common, analysis_date)
 
+        cache.set(cache_key, result, timeout=60 * 60 * 24 * 30)
+        return result
+
+    def _from_era5(self, common: dict, analysis_date: date) -> dict:
+        params = {**common, "models": "era5"}
         try:
-            payload = self._request(endpoint, params)
-        except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
+            payload = self._request(ARCHIVE_API, params)
+            return self._build_result(
+                payload,
+                analysis_date,
+                source="open-meteo-era5",
+                dataset="ERA5 reanalysis",
+            )
+        except (
+            HTTPError,
+            URLError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            HistoricalWeatherError,
+        ) as exc:
             raise HistoricalWeatherError(
                 f"Historical weather API failed for {analysis_date.isoformat()}: {exc}"
             ) from exc
 
+    def _build_result(
+        self,
+        payload: dict,
+        analysis_date: date,
+        *,
+        source: str,
+        dataset: str,
+    ) -> dict:
         hourly = payload.get("hourly") or {}
         times = hourly.get("time") or []
         precipitation = hourly.get("precipitation") or []
@@ -102,10 +140,12 @@ class HistoricalWeatherService:
             )
 
         all_rain = [self._number(value) for value in precipitation if value is not None]
-        selected_rain = [row["precipitation"] for row in rows if row["precipitation"] is not None]
+        selected_rain = [
+            row["precipitation"] for row in rows if row["precipitation"] is not None
+        ]
         recent_rain = all_rain[-72:] if all_rain else []
         last = rows[-1]
-        result = {
+        return {
             "analysis_date": analysis_date.isoformat(),
             "rainfall_24h_mm": round(sum(selected_rain), 2),
             "rainfall_3d_mm": round(sum(recent_rain), 2),
@@ -124,8 +164,6 @@ class HistoricalWeatherService:
                 "partial": len(rows) < 24,
             },
         }
-        cache.set(cache_key, result, timeout=60 * 60 * 24 * 30)
-        return result
 
     @staticmethod
     def _request(endpoint: str, params: dict) -> dict:
@@ -134,7 +172,7 @@ class HistoricalWeatherService:
             f"{endpoint}?{query}",
             headers={"User-Agent": "FloodIntel/1.0"},
         )
-        with urlopen(request, timeout=30) as response:
+        with urlopen(request, timeout=HISTORICAL_REQUEST_TIMEOUT_SECONDS) as response:
             payload = json.loads(response.read().decode("utf-8"))
         if payload.get("error"):
             raise ValueError(payload.get("reason", "Unknown Open-Meteo error"))
