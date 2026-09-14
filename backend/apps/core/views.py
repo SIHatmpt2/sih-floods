@@ -63,9 +63,9 @@ def redirect_result(request):
     if analysis_date > today:
         raise Http404("Analysis only accepts today or earlier dates.")
 
-    # Today = live AccuWeather analysis. Any earlier date = historical
-    # reconstruction from Open-Meteo. This prevents current conditions from
-    # being presented as historical observations.
+    # Today uses live AccuWeather conditions. A separate historical request
+    # supplies the rolling seven-day rainfall total because the live provider
+    # does not reliably expose that aggregate.
     if analysis_date == today:
         try:
             weather = WeatherService().current(lat, lon)
@@ -86,8 +86,19 @@ def redirect_result(request):
         risk = RiskService().current(lat, lon, weather=weather)
         events = list(recent_flood_events(lat, lon, radius_km=50, days=3650))
         event = events[0] if events else None
+
+        rainfall_7d_mm = weather.get("rainfall_7d_mm")
+        try:
+            historical_today = HistoricalWeatherService().for_date(lat, lon, analysis_date)
+            rainfall_7d_mm = historical_today.get("rainfall_7d_mm")
+        except HistoricalWeatherError:
+            # Keep the live analysis usable if the separate aggregate request
+            # is unavailable; the field remains explicitly unavailable.
+            pass
+
         weather_outputs = {
             "rainfall_mm": weather.get("rainfall_24h_mm", weather.get("rainfall_mm")),
+            "rainfall_7d_mm": rainfall_7d_mm,
             "temperature_c": weather.get("temperature_c"),
             "humidity": weather.get("humidity"),
             "wind_speed_kmh": weather.get("wind_speed_kmh"),
@@ -127,6 +138,7 @@ def redirect_result(request):
 
     weather_outputs = {
         "rainfall_mm": weather.get("rainfall_24h_mm"),
+        "rainfall_7d_mm": weather.get("rainfall_7d_mm"),
         "temperature_c": weather.get("temperature_c"),
         "humidity": weather.get("humidity"),
         "wind_speed_kmh": weather.get("wind_speed_kmh"),
