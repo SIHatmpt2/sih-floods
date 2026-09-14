@@ -10,11 +10,11 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
     <link rel="stylesheet" href="{% static 'css/redirect.css' %}">
     <link rel="stylesheet" href="{% static 'css/date-feature.css' %}">
+    <link rel="stylesheet" href="{% static 'css/historical-result.css' %}">
 </head>
 <body>
 <div class="page">
     <header class="header"><div class="brand"><h1><span class="flood-text">Flood</span><span class="intel-text">Intel</span></h1><p>Intelligent Flash Flood Prediction &amp; Early Warning</p></div></header>
-
     <section class="location-bar">
         <div class="location-info">
             <div class="location-label">Selected Location</div>
@@ -23,9 +23,7 @@
         </div>
         <a href="/" class="back-button">← Back to Locations</a>
     </section>
-
     <section class="map-section"><div class="map-container"><div id="map"></div><div class="map-controls"><button id="zoomIn" type="button" aria-label="Zoom in">+</button><button id="zoomOut" type="button" aria-label="Zoom out">−</button></div></div></section>
-
     <section class="details-section">
         <div class="details-title">Historical Location Intelligence</div>
         <div class="details-grid">
@@ -36,35 +34,21 @@
             <div class="info-card"><div class="info-label">Humidity</div><div class="info-value">{{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}</div><div class="info-subtext">Historical reanalysis</div></div>
         </div>
     </section>
-
     {% if historical_event %}
     <section class="historical-event">
-        <div>
-            <div class="event-label">Historical Flood Event</div>
-            <div class="event-title">{{ historical_event.name }}</div>
-            <div class="event-meta">{{ historical_event.event_date|date:"d M Y" }} · {{ historical_event.district|default:"Nearby area" }}</div>
-        </div>
+        <div><div class="event-label">Historical Flood Event</div><div class="event-title">{{ historical_event.name }}</div><div class="event-meta">{{ historical_event.event_date|date:"d M Y" }} · {{ historical_event.district|default:"Nearby area" }}</div></div>
         <div class="event-severity">{{ historical_event.severity|floatformat:0 }} / 100 severity</div>
     </section>
     {% endif %}
-
     <section class="status-section">
-        <div class="status-content">
-            <div class="status-text"><strong>Analysis Status</strong><span>Historical conditions reconstructed from reanalysis data and evaluated by the FloodIntel risk engine.</span></div>
-            <div class="status-badge">HISTORICAL ANALYSIS</div>
-        </div>
+        <div class="status-content"><div class="status-text"><strong>Analysis Status</strong><span>Historical conditions reconstructed from reanalysis data and evaluated by the FloodIntel risk engine.</span></div><div class="status-badge">HISTORICAL ANALYSIS</div></div>
     </section>
 </div>
-
 {{ locations|json_script:"floodintel-locations" }}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
     window.FLOODINTEL_LOCATIONS = JSON.parse(document.getElementById("floodintel-locations").textContent);
-    window.FLOODINTEL_SELECTED_LOCATION = {
-        lat: Number("{{ location.lat }}"),
-        lng: Number("{{ location.lng }}"),
-        name: "{{ location.name|escapejs }}"
-    };
+    window.FLOODINTEL_SELECTED_LOCATION = {lat: Number("{{ location.lat }}"), lng: Number("{{ location.lng }}"), name: "{{ location.name|escapejs }}"};
 </script>
 <script src="{% static 'js/redirect.js' %}"></script>
 </body>
