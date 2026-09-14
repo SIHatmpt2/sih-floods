@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from services.core_service import CoreService
 from services.risk_service import RiskService
 from services.weather_service import WeatherService
+from apps.risk.services.rainfall import rainfall_features
 from .serializers import CoordinateQuerySerializer, NotificationRecordSerializer, UserLocationSerializer
 
 service = CoreService()
@@ -29,17 +30,14 @@ def redirect_result(request):
     location = LOCATIONS.get(location_key, LOCATIONS["location1"])
     lat, lon = location["lat"], location["lng"]
 
-    # Fetch the three live weather outputs from the Weather app/service once
-    # and pass the normalized values directly to the result template.
     weather = WeatherService().current(lat, lon)
     weather_outputs = {
         "rainfall_mm": weather.get("rainfall_24h_mm", weather.get("rainfall_mm")),
+        "rainfall_7d_mm": rainfall_features(lat, lon).get("rainfall_7d_mm"),
         "temperature_c": weather.get("temperature_c"),
         "humidity": weather.get("humidity"),
     }
 
-    # Reuse the exact live weather response for the risk model instead of
-    # making a second provider request for the selected location.
     risk = RiskService().current(lat, lon, weather=weather)
     return render(request, "redirect.html", {
         "location": location,
