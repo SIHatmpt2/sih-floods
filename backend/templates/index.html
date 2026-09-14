@@ -21,12 +21,21 @@
     <main class="main-content">
         <header class="header"><div class="brand"><div class="brand-text"><h1><span class="flood-text">Flood</span><span class="intel-text">Intel</span></h1><p>Intelligent Flash Flood Prediction &amp; Early Warning</p></div></div></header>
         <section class="location-section">
-            <div class="location-label">SELECT LOCATION</div>
-            <select id="locationSelect">
-                {% for key, location in locations.items %}
-                <option value="{{ key }}">{{ location.name }}</option>
-                {% endfor %}
-            </select>
+            <div class="selection-row">
+                <div class="selection-field">
+                    <div class="location-label">SELECT LOCATION</div>
+                    <select id="locationSelect">
+                        {% for key, location in locations.items %}
+                        <option value="{{ key }}">{{ location.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="selection-field">
+                    <div class="location-label">SELECT DATE</div>
+                    <input id="dateSelect" type="date" value="{{ request.GET.date|default:'' }}" max="{% now 'Y-m-d' %}" aria-label="Select analysis date">
+                </div>
+                <button id="analyzeButton" class="analyze-button" type="button">Analyze</button>
+            </div>
         </section>
         <section class="map-container">
             <div id="map"></div>
