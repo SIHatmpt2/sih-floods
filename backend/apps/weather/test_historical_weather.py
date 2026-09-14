@@ -49,3 +49,15 @@ class HistoricalWeatherServiceTests(SimpleTestCase):
         self.assertEqual(result["temperature_c"], 19.0)
         self.assertEqual(result["humidity"], 92.0)
         self.assertEqual(result["data_quality"]["source"], "open-meteo-historical-forecast")
+
+    @patch("apps.weather.services.historical.urlopen")
+    def test_historical_weather_does_not_fall_back_to_nasa_power(self, urlopen):
+        from urllib.error import URLError
+
+        urlopen.side_effect = URLError("historical providers unavailable")
+
+        with self.assertRaises(Exception) as raised:
+            HistoricalWeatherService().for_date(31.71194, 76.93273, date(2023, 6, 13))
+
+        self.assertNotIn("NASA POWER", str(raised.exception))
+        self.assertEqual(urlopen.call_count, 2)
