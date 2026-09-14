@@ -1,12 +1,18 @@
 """Build the feature contract consumed by the trained Risk model."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 
-def build_risk_features(weather: dict) -> dict:
-    """Map normalized weather data into the V1.5 model feature names."""
-    now = datetime.now().astimezone()
+def build_risk_features(weather: dict, analysis_datetime: datetime | date | None = None) -> dict:
+    """Map normalized weather data into the V1.5 model feature names.
+
+    Historical analysis passes the requested date so calendar-derived model
+    features describe the period being reconstructed, not the server's clock.
+    """
+    analysis_datetime = analysis_datetime or datetime.now().astimezone()
+    if isinstance(analysis_datetime, date) and not isinstance(analysis_datetime, datetime):
+        analysis_datetime = datetime.combine(analysis_datetime, datetime.min.time())
     rainfall_24h = weather.get("rainfall_24h_mm", weather.get("rainfall_mm"))
     rainfall_3d = weather.get("rainfall_3d_mm")
     rainfall_7d = weather.get("rainfall_7d_mm")
@@ -57,9 +63,9 @@ def build_risk_features(weather: dict) -> dict:
         "historical_max_severity": weather.get("historical_max_severity", weather.get("max_severity", 0.0)) or 0.0,
         "historical_mean_severity": weather.get("historical_mean_severity", weather.get("max_severity", 0.0)) or 0.0,
         "historical_glof_count": weather.get("historical_glof_count", 0) or 0,
-        "month": now.month,
-        "day_of_year": now.timetuple().tm_yday,
-        "is_monsoon": int(now.month in (6, 7, 8, 9)),
+        "month": analysis_datetime.month,
+        "day_of_year": analysis_datetime.timetuple().tm_yday,
+        "is_monsoon": int(analysis_datetime.month in (6, 7, 8, 9)),
         "temperature_c": weather.get("temperature_c"),
         "humidity": weather.get("humidity"),
         "slope_deg": weather.get("slope_deg"),
