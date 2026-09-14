@@ -34,24 +34,39 @@ function initMap() {
 window.initFloodIntelMap = initMap;
 
 const locationSelect = document.getElementById("locationSelect");
+const dateSelect = document.getElementById("dateSelect");
+const analyzeButton = document.getElementById("analyzeButton");
+
 if (locationSelect) {
     locationSelect.addEventListener("change", function () {
         const selectedLocation = locations[this.value];
         if (!selectedLocation) return;
-
         if (map) {
             const center = [Number(selectedLocation.lat), Number(selectedLocation.lng)];
             map.setView(center, 8, { animate: true });
             marker?.setLatLng(center).bindPopup(selectedLocation.name).openPopup();
         }
-
-        const url = new URL(window.location.href);
-        url.searchParams.set("location", this.value);
-        window.location.assign(url.toString());
     });
 }
 
+function runAnalysis() {
+    const location = locationSelect?.value;
+    const selectedDate = dateSelect?.value;
+    if (!location || !selectedDate) {
+        window.alert("Please select both a location and a date.");
+        return;
+    }
+    const url = new URL(window.location.origin + "/");
+    url.searchParams.set("location", location);
+    url.searchParams.set("date", selectedDate);
+    window.location.assign(url.toString());
+}
+
+analyzeButton?.addEventListener("click", runAnalysis);
+dateSelect?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") runAnalysis();
+});
+
 document.getElementById("zoomIn")?.addEventListener("click", () => map?.zoomIn());
 document.getElementById("zoomOut")?.addEventListener("click", () => map?.zoomOut());
-
 document.addEventListener("DOMContentLoaded", initMap);
