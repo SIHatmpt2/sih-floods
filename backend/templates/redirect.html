@@ -16,14 +16,13 @@
 <div class="page">
     <header class="header"><div class="brand"><h1><span class="flood-text">Flood</span><span class="intel-text">Intel</span></h1><p>Intelligent Flash Flood Prediction &amp; Early Warning</p></div></header>
     <section class="location-bar">
-        <div class="location-info">
-            <div class="location-label">Selected Location</div>
-            <div class="location-name">{{ location.name }}</div>
-            <div class="analysis-date">Analysis date: <strong>{{ analysis_date|date:"d M Y" }}</strong></div>
-        </div>
+        <div class="location-info"><div class="location-label">Selected Location</div><div class="location-name">{{ location.name }}</div><div class="analysis-date">Analysis date: <strong>{{ analysis_date|date:"d M Y" }}</strong></div></div>
         <a href="/" class="back-button">← Back to Locations</a>
     </section>
     <section class="map-section"><div class="map-container"><div id="map"></div><div class="map-controls"><button id="zoomIn" type="button" aria-label="Zoom in">+</button><button id="zoomOut" type="button" aria-label="Zoom out">−</button></div></div></section>
+    {% if risk.risk_level == "high" or risk.risk_level == "severe" %}
+    <section class="flash-alert"><div><div class="alert-label">FloodIntel Model Alert</div><div class="alert-title">FLASH FLOOD ALERT</div><div class="alert-message">The reconstructed conditions for {{ analysis_date|date:"d M Y" }} produce a {{ risk.risk_level|title }} flood-risk classification at this location.</div></div><div class="alert-score">{{ risk.risk_score|floatformat:1 }}<span> / 100</span></div></section>
+    {% endif %}
     <section class="details-section">
         <div class="details-title">Historical Location Intelligence</div>
         <div class="details-grid">
@@ -35,14 +34,9 @@
         </div>
     </section>
     {% if historical_event %}
-    <section class="historical-event">
-        <div><div class="event-label">Historical Flood Event</div><div class="event-title">{{ historical_event.name }}</div><div class="event-meta">{{ historical_event.event_date|date:"d M Y" }} · {{ historical_event.district|default:"Nearby area" }}</div></div>
-        <div class="event-severity">{{ historical_event.severity|floatformat:0 }} / 100 severity</div>
-    </section>
+    <section class="historical-event"><div><div class="event-label">Historical Flood Event</div><div class="event-title">{{ historical_event.name }}</div><div class="event-meta">{{ historical_event.event_date|date:"d M Y" }} · {{ historical_event.district|default:"Nearby area" }}</div></div><div class="event-severity">{{ historical_event.severity|floatformat:0 }} / 100 severity</div></section>
     {% endif %}
-    <section class="status-section">
-        <div class="status-content"><div class="status-text"><strong>Analysis Status</strong><span>Historical conditions reconstructed from reanalysis data and evaluated by the FloodIntel risk engine.</span></div><div class="status-badge">HISTORICAL ANALYSIS</div></div>
-    </section>
+    <section class="status-section"><div class="status-content"><div class="status-text"><strong>Analysis Status</strong><span>Historical conditions reconstructed from ERA5-Land reanalysis and evaluated by the FloodIntel risk engine.</span></div><div class="status-badge">HISTORICAL ANALYSIS</div></div></section>
 </div>
 {{ locations|json_script:"floodintel-locations" }}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
