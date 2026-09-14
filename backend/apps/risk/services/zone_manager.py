@@ -14,20 +14,20 @@ from ml.predictor import RiskModelPredictor
 from . import cache
 
 
-def collect_features(latitude, longitude, weather=None):
+def collect_features(latitude, longitude, weather=None, analysis_date=None):
     features = {}
     try:
         if weather is None:
             features.update(WeatherRiskAdapter().current_features(latitude, longitude))
         else:
             from data_processing.feature_builder import build_risk_features
-            features.update(build_risk_features(weather))
+            features.update(build_risk_features(weather, analysis_datetime=analysis_date))
     except Exception:
         pass
     features.update(rainfall_features(latitude, longitude))
     features.update(river_features(latitude, longitude))
     features.update(terrain_features(latitude, longitude))
-    features.update(historical_features(latitude, longitude))
+    features.update(historical_features(latitude, longitude, analysis_date=analysis_date))
     return features
 
 
@@ -53,8 +53,8 @@ def score_features(features):
 
 
 @transaction.atomic
-def assess_point(latitude, longitude, zone=None, persist=False, weather=None):
-    features = collect_features(latitude, longitude, weather=weather)
+def assess_point(latitude, longitude, zone=None, persist=False, weather=None, analysis_date=None):
+    features = collect_features(latitude, longitude, weather=weather, analysis_date=analysis_date)
     result = score_features(features)
     if not persist:
         return result
