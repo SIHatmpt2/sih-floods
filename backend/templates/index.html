@@ -27,7 +27,7 @@
                     <div class="location-label">SELECT LOCATION</div>
                     <select id="locationSelect">
                         {% for key, location in locations.items %}
-                        <option value="{{ key }}">{{ location.name }}</option>
+                        <option value="{{ key }}" {% if request.GET.location == key %}selected{% endif %}>{{ location.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
