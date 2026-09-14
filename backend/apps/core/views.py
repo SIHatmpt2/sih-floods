@@ -38,30 +38,82 @@ def _parse_analysis_date(value: str | None) -> date:
         raise Http404("Invalid date. Use YYYY-MM-DD.") from exc
 
 
+def _render_analysis_error(request, location, location_key, analysis_date, message, current=False):
+    return render(request, "redirect.html", {
+        "location": location,
+        "location_key": location_key,
+        "analysis_date": analysis_date,
+        "locations": LOCATIONS,
+        "weather": {},
+        "weather_outputs": {},
+        "risk": {},
+        "historical_event": None,
+        "analysis_error": message,
+        "current_mode": current,
+    }, status=502)
+
+
 def redirect_result(request):
     location_key = request.GET.get("location", "location1")
     location = LOCATIONS.get(location_key, LOCATIONS["location1"])
     analysis_date = _parse_analysis_date(request.GET.get("date"))
     lat, lon = location["lat"], location["lng"]
+    today = date.today()
 
-    if analysis_date > date.today():
-        raise Http404("Historical analysis only accepts today or earlier dates.")
+    if analysis_date > today:
+        raise Http404("Analysis only accepts today or earlier dates.")
 
-    try:
-        weather = HistoricalWeatherService().for_date(lat, lon, analysis_date)
-        risk = RiskService().historical(lat, lon, analysis_date, weather)
-    except HistoricalWeatherError as exc:
+    # Today = live AccuWeather analysis. Any earlier date = historical
+    # reconstruction from Open-Meteo. This prevents current conditions from
+    # being presented as historical observations.
+    if analysis_date == today:
+        try:
+            weather = WeatherService().current(lat, lon)
+        except Exception as exc:
+            return _render_analysis_error(
+                request, location, location_key, analysis_date,
+                f"Live weather service failed: {exc}", current=True,
+            )
+
+        if not weather.get("data_quality", {}).get("available"):
+            return _render_analysis_error(
+                request, location, location_key, analysis_date,
+                "No live weather provider returned usable conditions. Configure ACCUWEATHER_API_KEY and try again.",
+                current=True,
+            )
+
+        risk = RiskService().current(lat, lon, weather=weather)
+        events = list(recent_flood_events(lat, lon, radius_km=50, days=3650))
+        event = events[0] if events else None
+        weather_outputs = {
+            "rainfall_mm": weather.get("rainfall_24h_mm", weather.get("rainfall_mm")),
+            "temperature_c": weather.get("temperature_c"),
+            "humidity": weather.get("humidity"),
+            "wind_speed_kmh": weather.get("wind_speed_kmh"),
+            "pressure_hpa": weather.get("pressure_hpa"),
+            "observed_at": weather.get("observed_at"),
+            "provider": weather.get("data_quality", {}).get("source") or weather.get("station", {}).get("provider"),
+        }
         return render(request, "redirect.html", {
             "location": location,
             "location_key": location_key,
             "analysis_date": analysis_date,
             "locations": LOCATIONS,
-            "weather": {},
-            "weather_outputs": {},
-            "risk": {},
-            "historical_event": None,
-            "analysis_error": str(exc),
-        }, status=502)
+            "weather": weather,
+            "weather_outputs": weather_outputs,
+            "risk": risk,
+            "historical_event": event,
+            "analysis_error": None,
+            "current_mode": True,
+        })
+
+    try:
+        weather = HistoricalWeatherService().for_date(lat, lon, analysis_date)
+        risk = RiskService().historical(lat, lon, analysis_date, weather)
+    except HistoricalWeatherError as exc:
+        return _render_analysis_error(
+            request, location, location_key, analysis_date, str(exc), current=False,
+        )
 
     events = list(recent_flood_events(
         lat,
@@ -76,6 +128,9 @@ def redirect_result(request):
         "rainfall_mm": weather.get("rainfall_24h_mm"),
         "temperature_c": weather.get("temperature_c"),
         "humidity": weather.get("humidity"),
+        "wind_speed_kmh": weather.get("wind_speed_kmh"),
+        "pressure_hpa": weather.get("pressure_hpa"),
+        "provider": weather.get("data_quality", {}).get("dataset"),
     }
     return render(request, "redirect.html", {
         "location": location,
@@ -87,6 +142,7 @@ def redirect_result(request):
         "risk": risk,
         "historical_event": event,
         "analysis_error": None,
+        "current_mode": False,
     })
 
 
