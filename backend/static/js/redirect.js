@@ -1,58 +1,113 @@
 const locations = window.FLOODINTEL_LOCATIONS || {};
+const params = new URLSearchParams(window.location.search);
+const selectedKey = params.get("location") || "location1";
+const selectedLocation = locations[selectedKey] || Object.values(locations)[0] || null;
+
+const riskData = window.FLOODINTEL_RISK || {};
+
 let map;
 let marker;
+let riskCircle;
 
-function getSelectedLocation() {
-    const select = document.getElementById("locationSelect");
-    return locations[select?.value] || Object.values(locations)[0] || null;
+const locationNameElement = document.getElementById("locationName");
+
+if (locationNameElement && selectedLocation) {
+    locationNameElement.textContent = selectedLocation.name;
+}
+
+function getRiskColor(level) {
+    switch ((level || "").toLowerCase()) {
+        case "low":
+            return "#1f8a4c";
+        case "moderate":
+            return "#d97706";
+        case "high":
+            return "#dc2626";
+        case "severe":
+        case "very high":
+            return "#6b1111";
+        default:
+            return "#61758d";
+    }
 }
 
 function createSelectedMarker(center, name) {
     const icon = L.divIcon({
         className: "selected-location-marker",
-        html: '<div style="width:30px;height:30px;border-radius:50%;background:rgba(0,121,254,.25);display:flex;align-items:center;justify-content:center;animation:markerPulse 1.8s ease-out infinite;"><div style="width:12px;height:12px;border-radius:50%;background:#0079FE;border:3px solid #ffffff;box-shadow:0 1px 5px rgba(0,0,0,.35);"></div></div>',
+        html: '<div class="marker-pulse"><div class="marker-dot"></div></div>',
         iconSize: [30, 30],
         iconAnchor: [15, 15],
         popupAnchor: [0, -15]
     });
 
-    if (marker) {
-        marker.setLatLng(center);
-        marker.setIcon(icon);
-        marker.bindPopup(name);
-    } else {
-        marker = L.marker(center, { icon }).addTo(map);
-        marker.bindPopup(name);
-    }
+    marker = L.marker(center, { icon }).addTo(map);
 
-    marker.openPopup();
+    const data = window.FLOODINTEL_RISK || {};
+
+    const popupContent = `
+        <strong>${name}</strong><br>
+        Risk Score: ${data.score ? Number(data.score).toFixed(1) + "/100" : "—"}<br>
+        Risk Level: ${data.level || "—"}<br>
+        Rainfall (24h): ${data.rainfall24h ? data.rainfall24h + " mm" : "—"}<br>
+        Rainfall (7d): ${data.rainfall7d ? data.rainfall7d + " mm" : "—"}
+    `;
+
+    marker.bindPopup(popupContent).openPopup();
 }
 
-function focusLocation(selected, animate = true) {
-    if (!map || !selected) return;
+function createRiskCircle(center) {
+    const riskColor = getRiskColor(riskData.level);
 
-    const center = [Number(selected.lat), Number(selected.lng)];
+    if (riskCircle) {
+        riskCircle.remove();
+    }
 
-    map.setView(center, 11, {
-        animate: animate,
-        duration: 0.8
-    });
+    riskCircle = L.circle(center, {
+        radius: 1500,
+        color: riskColor,
+        fillColor: riskColor,
+        fillOpacity: 0.18,
+        weight: 2
+    }).addTo(map);
+}
 
-    createSelectedMarker(center, selected.name);
+function addRiskLegend() {
+    const legend = L.control({ position: "bottomright" });
+
+    legend.onAdd = function () {
+        const div = L.DomUtil.create("div", "risk-legend");
+
+        div.innerHTML = `
+            <div class="risk-legend-title">Risk Level</div>
+            <div><span class="risk-dot low"></span> Low</div>
+            <div><span class="risk-dot moderate"></span> Moderate</div>
+            <div><span class="risk-dot high"></span> High</div>
+            <div><span class="risk-dot severe"></span> Severe</div>
+        `;
+
+        return div;
+    };
+
+    legend.addTo(map);
 }
 
 function initMap() {
     const mapElement = document.getElementById("map");
-    const selected = window.FLOODINTEL_SELECTED_LOCATION || Object.values(locations)[0] || null;
 
-    if (!mapElement || !selected || typeof L === "undefined") return;
+    if (!mapElement || !selectedLocation || typeof L === "undefined") {
+        return;
+    }
 
     if (map) {
         map.remove();
         marker = null;
+        riskCircle = null;
     }
 
-    const center = [Number(selected.lat), Number(selected.lng)];
+    const center = [
+        Number(selectedLocation.lat),
+        Number(selectedLocation.lng)
+    ];
 
     map = L.map(mapElement, {
         zoomControl: false,
@@ -68,39 +123,15 @@ function initMap() {
         }
     ).addTo(map);
 
-    createSelectedMarker(center, selected.name);
+    createRiskCircle(center);
+    createSelectedMarker(center, selectedLocation.name);
+    addRiskLegend();
 
     window.setTimeout(() => map?.invalidateSize(), 0);
 }
 
 window.initFloodIntelMap = initMap;
 
-const locationSelect = document.getElementById("locationSelect");
-
-if (locationSelect) {
-    locationSelect.addEventListener("change", function () {
-        const selectedLocation = locations[this.value];
-
-        if (!selectedLocation) return;
-
-        focusLocation(selectedLocation, true);
-
-        const url = new URL(window.location.href);
-        url.searchParams.set("location", this.value);
-        window.location.assign(url.toString());
-    });
-}
-
-document.getElementById("zoomIn")?.addEventListener("click", () => {
-    map?.zoomIn();
-});
-
-document.getElementById("zoomOut")?.addEventListener("click", () => {
-    map?.zoomOut();
-});
-
+document.getElementById("zoomIn")?.addEventListener("click", () => map?.zoomIn());
+document.getElementById("zoomOut")?.addEventListener("click", () => map?.zoomOut());
 document.addEventListener("DOMContentLoaded", initMap);
-
-const markerStyle = document.createElement("style");
-markerStyle.textContent = `@keyframes markerPulse {0%{transform:scale(.7);opacity:1}70%{transform:scale(1.25);opacity:.45}100%{transform:scale(1.4);opacity:0}}`;
-document.head.appendChild(markerStyle);
