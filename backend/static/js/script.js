@@ -52,10 +52,22 @@ if (locationSelect) {
 function runAnalysis() {
     const location = locationSelect?.value;
     const selectedDate = dateSelect?.value;
+
     if (!location || !selectedDate) {
         window.alert("Please select both a location and a date.");
         return;
     }
+
+    if (dateSelect?.max && selectedDate > dateSelect.max) {
+        window.alert("Please select a date that is not in the future.");
+        return;
+    }
+
+    if (analyzeButton) {
+        analyzeButton.disabled = true;
+        analyzeButton.textContent = "Analyzing...";
+    }
+
     const url = new URL(window.location.origin + "/");
     url.searchParams.set("location", location);
     url.searchParams.set("date", selectedDate);
