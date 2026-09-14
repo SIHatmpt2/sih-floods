@@ -1,3 +1,6 @@
+from datetime import date
+
+from django.http import Http404
 from django.shortcuts import render
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -6,6 +9,8 @@ from rest_framework.views import APIView
 from services.core_service import CoreService
 from services.risk_service import RiskService
 from services.weather_service import WeatherService
+from apps.risk.selectors import recent_flood_events
+from apps.weather.services.historical import HistoricalWeatherService
 from .serializers import CoordinateQuerySerializer, NotificationRecordSerializer, UserLocationSerializer
 
 service = CoreService()
@@ -15,7 +20,7 @@ LOCATIONS = {
     "location2": {"name": "Arunachal Pradesh", "lat": 28.2, "lng": 94.7},
     "location3": {"name": "Sikkim", "lat": 27.5, "lng": 88.5},
     "location4": {"name": "Nainital, Uttarakhand", "lat": 29.3919, "lng": 79.4542},
-    "location5": {"name": "Himachal Pradesh", "lat": 31.8, "lng": 77.2},
+    "location5": {"name": "Mandi, Himachal Pradesh", "lat": 31.7119, "lng": 76.9327},
     "location6": {"name": "Jammu & Kashmir", "lat": 33.4, "lng": 75.3},
     "location7": {"name": "Ladakh", "lat": 34.2, "lng": 77.6},
     "location8": {"name": "Northeast Hills", "lat": 27.0, "lng": 91.0},
@@ -24,30 +29,43 @@ LOCATIONS = {
 }
 
 
+def _parse_analysis_date(value: str | None) -> date:
+    if not value:
+        return date.today()
+    try:
+        return date.fromisoformat(value)
+    except ValueError as exc:
+        raise Http404("Invalid date. Use YYYY-MM-DD.") from exc
+
+
 def redirect_result(request):
     location_key = request.GET.get("location", "location1")
     location = LOCATIONS.get(location_key, LOCATIONS["location1"])
+    analysis_date = _parse_analysis_date(request.GET.get("date"))
     lat, lon = location["lat"], location["lng"]
 
-    # Fetch the three live weather outputs from the Weather app/service once
-    # and pass the normalized values directly to the result template.
-    weather = WeatherService().current(lat, lon)
+    if analysis_date > date.today():
+        raise Http404("Historical analysis only accepts today or earlier dates.")
+
+    weather = HistoricalWeatherService().for_date(lat, lon, analysis_date)
+    risk = RiskService().historical(lat, lon, analysis_date, weather)
+    events = list(recent_flood_events(lat, lon, radius_km=50, days=3650, end_date=analysis_date))
+    event = events[0] if events else None
+
     weather_outputs = {
-        "rainfall_mm": weather.get("rainfall_24h_mm", weather.get("rainfall_mm")),
+        "rainfall_mm": weather.get("rainfall_24h_mm"),
         "temperature_c": weather.get("temperature_c"),
         "humidity": weather.get("humidity"),
     }
-
-    # Reuse the exact live weather response for the risk model instead of
-    # making a second provider request for the selected location.
-    risk = RiskService().current(lat, lon, weather=weather)
     return render(request, "redirect.html", {
         "location": location,
         "location_key": location_key,
+        "analysis_date": analysis_date,
         "locations": LOCATIONS,
         "weather": weather,
         "weather_outputs": weather_outputs,
         "risk": risk,
+        "historical_event": event,
     })
 
 
