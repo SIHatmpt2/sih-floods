@@ -11,7 +11,7 @@ from django.core.cache import cache
 
 HISTORICAL_FORECAST_API = "https://historical-forecast-api.open-meteo.com/v1/forecast"
 ARCHIVE_API = "https://archive-api.open-meteo.com/v1/archive"
-HISTORICAL_FORECAST_START_YEAR = 2022
+HISTORICAL_FORECAST_START_YEAR = 2024
 HISTORICAL_REQUEST_TIMEOUT_SECONDS = 12
 
 
@@ -22,11 +22,11 @@ class HistoricalWeatherError(RuntimeError):
 class HistoricalWeatherService:
     """Fetch historical hourly weather for a requested date.
 
-    Historical Forecast is preferred for dates covered by its archive. If a
-    requested date is missing or the service is unavailable, the archive API's
-    Best Match model is tried next, followed by ERA5 as the long-range
-    historical fallback. This prevents one upstream dataset from making a
-    valid historical date unavailable.
+    The Historical Forecast API is preferred for recent dates from 2024 onward.
+    Older dates use the ERA5 archive directly because it provides gap-free
+    historical coverage back to 1940. If the Historical Forecast API is slow
+    or unavailable, ERA5 is used as a fallback so a valid date does not stall
+    the analysis indefinitely.
     """
 
     @staticmethod
@@ -74,21 +74,22 @@ class HistoricalWeatherService:
                 ValueError,
                 HistoricalWeatherError,
             ):
-                result = self._from_archive(common, analysis_date)
+                result = self._from_era5(common, analysis_date)
         else:
-            result = self._from_archive(common, analysis_date)
+            result = self._from_era5(common, analysis_date)
 
         cache.set(cache_key, result, timeout=60 * 60 * 24 * 30)
         return result
 
-    def _from_archive(self, common: dict, analysis_date: date) -> dict:
+    def _from_era5(self, common: dict, analysis_date: date) -> dict:
+        params = {**common, "models": "era5"}
         try:
-            payload = self._request(ARCHIVE_API, {**common, "models": "best_match"})
+            payload = self._request(ARCHIVE_API, params)
             return self._build_result(
                 payload,
                 analysis_date,
-                source="open-meteo-best-match",
-                dataset="Open-Meteo Historical Best Match",
+                source="open-meteo-era5",
+                dataset="ERA5 reanalysis",
             )
         except (
             HTTPError,
@@ -97,27 +98,10 @@ class HistoricalWeatherService:
             OSError,
             ValueError,
             HistoricalWeatherError,
-        ) as best_match_exc:
-            try:
-                payload = self._request(ARCHIVE_API, {**common, "models": "era5"})
-                return self._build_result(
-                    payload,
-                    analysis_date,
-                    source="open-meteo-era5",
-                    dataset="ERA5 reanalysis",
-                )
-            except (
-                HTTPError,
-                URLError,
-                TimeoutError,
-                OSError,
-                ValueError,
-                HistoricalWeatherError,
-            ) as era5_exc:
-                raise HistoricalWeatherError(
-                    f"Historical weather API failed for {analysis_date.isoformat()}: "
-                    f"Best Match failed ({best_match_exc}); ERA5 failed ({era5_exc})"
-                ) from era5_exc
+        ) as exc:
+            raise HistoricalWeatherError(
+                f"Historical weather API failed for {analysis_date.isoformat()}: {exc}"
+            ) from exc
 
     def _build_result(
         self,
