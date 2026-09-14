@@ -61,7 +61,11 @@ class WeatherAppTests(SimpleTestCase):
                 }
             }
         }
-        request_mock.side_effect = [URLError("historical forecast unavailable"), nasa_payload]
+        request_mock.side_effect = [
+            URLError("historical forecast unavailable"),
+            URLError("ERA5 unavailable"),
+            nasa_payload,
+        ]
 
         result = HistoricalWeatherService().for_date(26.2, 92.9, date(2026, 3, 5))
 
