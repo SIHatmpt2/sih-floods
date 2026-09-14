@@ -1,0 +1,56 @@
+.analysis-date {
+    margin-top: 4px;
+    color: #61758d;
+    font-size: 13px;
+}
+
+.historical-event {
+    margin: 20px 55px 0;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    border: 1px solid #c7d4e2;
+    border-radius: 8px;
+    background: #f7f9fb;
+}
+
+.event-label {
+    font-size: 12px;
+    color: #61758d;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+
+.event-title {
+    margin-top: 5px;
+    color: #102d51;
+    font-size: 19px;
+    font-weight: 700;
+}
+
+.event-meta {
+    margin-top: 4px;
+    color: #65778c;
+    font-size: 13px;
+}
+
+.event-severity {
+    padding: 8px 12px;
+    border-radius: 18px;
+    background: #eef3f8;
+    color: #173f6c;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+    .historical-event {
+        margin-left: 18px;
+        margin-right: 18px;
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
