@@ -92,6 +92,15 @@
 <script>
     window.FLOODINTEL_LOCATIONS = JSON.parse(document.getElementById("floodintel-locations").textContent);
 </script>
+<script>
+    window.FLOODINTEL_RISK = {
+        score: "{{ risk.risk_score|default_if_none:'' }}",
+        level: "{{ risk.risk_level|default_if_none:''|title }}",
+        rainfall24h: "{{ weather_outputs.rainfall_mm|default_if_none:'' }}",
+        rainfall7d: "{{ weather_outputs.rainfall_7d_mm|default_if_none:'' }}",
+        updated: "{{ weather.observed_at|default_if_none:'' }}"
+    };
+</script>
 <script src="{% static 'js/redirect.js' %}"></script>
 </body>
 </html>
