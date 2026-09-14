@@ -10,7 +10,7 @@ from services.core_service import CoreService
 from services.risk_service import RiskService
 from services.weather_service import WeatherService
 from apps.risk.selectors import recent_flood_events
-from apps.weather.services.historical import HistoricalWeatherService
+from apps.weather.services.historical import HistoricalWeatherError, HistoricalWeatherService
 from .serializers import CoordinateQuerySerializer, NotificationRecordSerializer, UserLocationSerializer
 
 service = CoreService()
@@ -47,9 +47,29 @@ def redirect_result(request):
     if analysis_date > date.today():
         raise Http404("Historical analysis only accepts today or earlier dates.")
 
-    weather = HistoricalWeatherService().for_date(lat, lon, analysis_date)
-    risk = RiskService().historical(lat, lon, analysis_date, weather)
-    events = list(recent_flood_events(lat, lon, radius_km=50, days=3650, end_date=analysis_date))
+    try:
+        weather = HistoricalWeatherService().for_date(lat, lon, analysis_date)
+        risk = RiskService().historical(lat, lon, analysis_date, weather)
+    except HistoricalWeatherError as exc:
+        return render(request, "redirect.html", {
+            "location": location,
+            "location_key": location_key,
+            "analysis_date": analysis_date,
+            "locations": LOCATIONS,
+            "weather": {},
+            "weather_outputs": {},
+            "risk": {},
+            "historical_event": None,
+            "analysis_error": str(exc),
+        }, status=502)
+
+    events = list(recent_flood_events(
+        lat,
+        lon,
+        radius_km=50,
+        days=3650,
+        end_date=analysis_date,
+    ))
     event = events[0] if events else None
 
     weather_outputs = {
@@ -66,6 +86,7 @@ def redirect_result(request):
         "weather_outputs": weather_outputs,
         "risk": risk,
         "historical_event": event,
+        "analysis_error": None,
     })
 
 
