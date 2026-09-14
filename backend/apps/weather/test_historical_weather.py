@@ -48,4 +48,4 @@ class HistoricalWeatherServiceTests(SimpleTestCase):
         self.assertEqual(result["rainfall_24h_mm"], 15.0)
         self.assertEqual(result["temperature_c"], 19.0)
         self.assertEqual(result["humidity"], 92.0)
-        self.assertEqual(result["data_quality"]["source"], "open-meteo-era5-land")
+        self.assertEqual(result["data_quality"]["source"], "open-meteo-historical-forecast")
