@@ -16,16 +16,16 @@ from .serializers import CoordinateQuerySerializer, NotificationRecordSerializer
 service = CoreService()
 
 LOCATIONS = {
-    "location1": {"name": "Assam Floodplain", "lat": 26.2, "lng": 92.9},
-    "location2": {"name": "Arunachal Pradesh", "lat": 28.2, "lng": 94.7},
-    "location3": {"name": "Sikkim", "lat": 27.5, "lng": 88.5},
-    "location4": {"name": "Nainital, Uttarakhand", "lat": 29.3919, "lng": 79.4542},
-    "location5": {"name": "Mandi, Himachal Pradesh", "lat": 31.7119, "lng": 76.9327},
-    "location6": {"name": "Jammu & Kashmir", "lat": 33.4, "lng": 75.3},
-    "location7": {"name": "Ladakh", "lat": 34.2, "lng": 77.6},
-    "location8": {"name": "Northeast Hills", "lat": 27.0, "lng": 91.0},
-    "location9": {"name": "Terai Region", "lat": 29.5, "lng": 80.5},
-    "location10": {"name": "Hamirpur, Himachal Pradesh", "lat": 31.6908, "lng": 76.5177},
+    "location1": {"name": "Mandi, Himachal Pradesh, India", "lat": 31.5892, "lng": 76.9182},
+    "location2": {"name": "Dibrugarh, Assam, India", "lat": 27.4728, "lng": 94.9120},
+    "location3": {"name": "Mangan, Sikkim, India", "lat": 27.5096, "lng": 88.5364},
+    "location4": {"name": "Karimganj, Assam, India", "lat": 24.8692, "lng": 92.3555},
+    "location5": {"name": "East Siang, Arunachal Pradesh, India", "lat": 28.0667, "lng": 95.3333},
+    "location6": {"name": "Tupul, Noney district, Manipur, India", "lat": 24.8050, "lng": 93.6720},
+    "location7": {"name": "Dehradun, Uttarakhand, India", "lat": 30.3165, "lng": 78.0322},
+    "location8": {"name": "Kathua, Jammu & Kashmir, India", "lat": 32.3867, "lng": 75.5189},
+    "location9": {"name": "Aizawl, Mizoram, India", "lat": 23.7271, "lng": 92.7176},
+    "location10": {"name": "Dimapur, Nagaland, India", "lat": 25.8629, "lng": 93.7537},
 }
 
 
