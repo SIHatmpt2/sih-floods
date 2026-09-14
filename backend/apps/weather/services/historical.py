@@ -12,14 +12,14 @@ OPEN_METEO_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
 
 
 class HistoricalWeatherService:
-    """Fetch and normalize reanalysis weather for a requested historical date."""
+    """Fetch and normalize ERA5-Land reanalysis for a requested date."""
 
     @staticmethod
     def analysis_window(analysis_date: date) -> tuple[date, date]:
         return analysis_date - timedelta(days=6), analysis_date
 
     def for_date(self, latitude: float, longitude: float, analysis_date: date) -> dict:
-        cache_key = f"floodintel:historical-weather:{float(latitude):.4f}:{float(longitude):.4f}:{analysis_date.isoformat()}"
+        cache_key = f"floodintel:historical-weather:era5-land:{float(latitude):.4f}:{float(longitude):.4f}:{analysis_date.isoformat()}"
         cached = cache.get(cache_key)
         if cached is not None:
             return cached
@@ -30,13 +30,11 @@ class HistoricalWeatherService:
             "longitude": longitude,
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
+            "models": "era5_land",
             "hourly": "temperature_2m,relative_humidity_2m,precipitation,rain,wind_speed_10m,pressure_msl",
             "timezone": "Asia/Kolkata",
         })
-        request = Request(
-            f"{OPEN_METEO_ARCHIVE}?{params}",
-            headers={"User-Agent": "FloodIntel/1.0"},
-        )
+        request = Request(f"{OPEN_METEO_ARCHIVE}?{params}", headers={"User-Agent": "FloodIntel/1.0"})
         with urlopen(request, timeout=20) as response:
             payload = json.loads(response.read().decode("utf-8"))
 
