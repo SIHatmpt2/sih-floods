@@ -75,7 +75,8 @@ def redirect_result(request):
                 f"Live weather service failed: {exc}", current=True,
             )
 
-        if not weather.get("data_quality", {}).get("available"):
+        source = weather.get("data_quality", {}).get("source") or weather.get("station", {}).get("provider")
+        if not weather.get("data_quality", {}).get("available") or source not in {"accuweather", "imd"}:
             return _render_analysis_error(
                 request, location, location_key, analysis_date,
                 "No live weather provider returned usable conditions. Configure ACCUWEATHER_API_KEY and try again.",
@@ -92,7 +93,7 @@ def redirect_result(request):
             "wind_speed_kmh": weather.get("wind_speed_kmh"),
             "pressure_hpa": weather.get("pressure_hpa"),
             "observed_at": weather.get("observed_at"),
-            "provider": weather.get("data_quality", {}).get("source") or weather.get("station", {}).get("provider"),
+            "provider": source,
         }
         return render(request, "redirect.html", {
             "location": location,
