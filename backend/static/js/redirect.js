@@ -15,9 +15,9 @@ function initMap() {
         zoomControl: false,
         attributionControl: true,
         scrollWheelZoom: true
-    }).setView(center, 9);
+    }).setView(center, 8);
 
-    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
         maxZoom: 19,
         attribution: "Tiles &copy; Esri"
     }).addTo(map);
