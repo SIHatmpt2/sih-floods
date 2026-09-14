@@ -82,7 +82,7 @@ class HistoricalWeatherServiceTests(SimpleTestCase):
         self.assertIn("models=best_match", urlopen.call_args.args[0].full_url)
 
     @patch("apps.weather.services.historical.urlopen")
-    def test_historical_weather_uses_best_match_for_older_dates(self, urlopen):
+    def test_historical_weather_uses_forecast_archive_for_2023(self, urlopen):
         payload = {
             "timezone": "Asia/Kolkata",
             "hourly": {
@@ -112,7 +112,7 @@ class HistoricalWeatherServiceTests(SimpleTestCase):
 
         self.assertEqual(result["analysis_date"], "2023-06-13")
         self.assertEqual(result["rainfall_24h_mm"], 15.0)
-        self.assertEqual(result["data_quality"]["source"], "open-meteo-best-match")
+        self.assertEqual(result["data_quality"]["source"], "open-meteo-historical-forecast")
 
     @patch("apps.weather.services.historical.urlopen")
     def test_best_match_failure_falls_back_to_era5(self, urlopen):
