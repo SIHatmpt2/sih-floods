@@ -5,6 +5,8 @@ from datetime import date, timedelta
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from django.core.cache import cache
+
 
 OPEN_METEO_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
 
@@ -14,11 +16,14 @@ class HistoricalWeatherService:
 
     @staticmethod
     def analysis_window(analysis_date: date) -> tuple[date, date]:
-        # Seven calendar days ending on the selected date gives the model enough
-        # context for 24h/48h/72h/7d precipitation features.
         return analysis_date - timedelta(days=6), analysis_date
 
     def for_date(self, latitude: float, longitude: float, analysis_date: date) -> dict:
+        cache_key = f"floodintel:historical-weather:{float(latitude):.4f}:{float(longitude):.4f}:{analysis_date.isoformat()}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         start_date, end_date = self.analysis_window(analysis_date)
         params = urlencode({
             "latitude": latitude,
@@ -61,9 +66,8 @@ class HistoricalWeatherService:
         all_rain = [self._number(value) for value in precipitation if value is not None]
         selected_rain = [row["precipitation"] for row in rows if row["precipitation"] is not None]
         recent_rain = all_rain[-72:] if all_rain else []
-
         last = rows[-1] if rows else {}
-        return {
+        result = {
             "analysis_date": analysis_date.isoformat(),
             "rainfall_24h_mm": round(sum(selected_rain), 2),
             "rainfall_3d_mm": round(sum(recent_rain), 2),
@@ -82,6 +86,8 @@ class HistoricalWeatherService:
                 "partial": len(rows) < 24,
             },
         }
+        cache.set(cache_key, result, timeout=60 * 60 * 24 * 30)
+        return result
 
     @staticmethod
     def _number(values, index=None):
