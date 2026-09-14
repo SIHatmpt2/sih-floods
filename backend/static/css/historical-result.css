@@ -23,6 +23,35 @@
 .alert-score { color: #8f2119; font-size: 30px; font-weight: 800; white-space: nowrap; }
 .alert-score span { font-size: 13px; font-weight: 600; }
 
+.analysis-error {
+    margin: 20px 55px 0;
+    padding: 20px;
+    border: 1px solid #d8a4a0;
+    border-left: 6px solid #a52a22;
+    border-radius: 8px;
+    background: #fff7f6;
+}
+
+.analysis-error-title {
+    color: #8f2119;
+    font-size: 19px;
+    font-weight: 800;
+}
+
+.analysis-error-message {
+    margin-top: 8px;
+    color: #62413e;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.analysis-error-help {
+    margin-top: 8px;
+    color: #65778c;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
 .historical-event {
     margin: 20px 55px 0;
     padding: 18px 20px;
@@ -41,5 +70,5 @@
 .event-severity { padding: 8px 12px; border-radius: 18px; background: #eef3f8; color: #173f6c; font-size: 12px; font-weight: 600; white-space: nowrap; }
 
 @media (max-width: 700px) {
-    .flash-alert, .historical-event { margin-left: 18px; margin-right: 18px; align-items: flex-start; flex-direction: column; }
+    .flash-alert, .historical-event, .analysis-error { margin-left: 18px; margin-right: 18px; align-items: flex-start; flex-direction: column; }
 }
