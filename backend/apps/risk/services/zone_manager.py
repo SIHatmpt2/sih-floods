@@ -16,16 +16,25 @@ from . import cache
 
 def collect_features(latitude, longitude, weather=None, analysis_date=None):
     features = {}
-    try:
-        if weather is None:
+    if weather is None:
+        try:
             features.update(WeatherRiskAdapter().current_features(latitude, longitude))
-        else:
-            from data_processing.feature_builder import build_risk_features
-            features.update(build_risk_features(weather, analysis_datetime=analysis_date))
-    except Exception:
-        pass
-    features.update(rainfall_features(latitude, longitude))
-    features.update(river_features(latitude, longitude))
+        except Exception:
+            pass
+        features.update(rainfall_features(latitude, longitude))
+        features.update(river_features(latitude, longitude))
+    else:
+        from data_processing.feature_builder import build_risk_features
+        features.update(build_risk_features(weather, analysis_datetime=analysis_date))
+        # The baseline engine and the trained model use different naming
+        # contracts. Keep aliases so the historical baseline uses the same
+        # reconstructed rainfall values instead of today's database values.
+        features["rainfall_24h_mm"] = weather.get("rainfall_24h_mm")
+        features["rainfall_3d_mm"] = weather.get("rainfall_3d_mm")
+        features["rainfall_7d_mm"] = weather.get("rainfall_7d_mm")
+        features["water_level_m"] = weather.get("water_level_m")
+        features["water_level_change"] = weather.get("water_level_change")
+
     features.update(terrain_features(latitude, longitude))
     features.update(historical_features(latitude, longitude, analysis_date=analysis_date))
     return features
