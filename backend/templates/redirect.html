@@ -1,4 +1,4 @@
-{% load static %}
+{% load static tz %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,8 +40,8 @@
     <section class="details-section">
         <div class="details-title">Location Intelligence</div>
         <div class="live-updated">
-            {% if current_mode %}Live data · Updated{% else %}Historical data · Analysis date{% endif %}
-            {% if analysis_date %}{{ analysis_date|date:"d M Y" }}{% else %}{{ weather.observed_at|default_if_none:"—" }}{% endif %}
+            Live data · Updated
+            {{ weather.observed_at|timezone:"Asia/Kolkata"|default_if_none:"—" }}
         </div>
 
         <div class="details-grid">
@@ -66,7 +66,7 @@
                     {{ weather_outputs.rainfall_mm|default_if_none:"—" }}{% if weather_outputs.rainfall_mm != None %} mm{% endif %}
                 </div>
                 <div class="info-subtext">
-                    Last 7 days · {{ weather_outputs.rainfall_7d_mm|default_if_none:"—" }} mm · {% if current_mode %}Live weather{% else %}Historical weather{% endif %}
+                    Last 7 days · {{ weather_outputs.rainfall_7d_mm|default_if_none:"—" }} mm · Live weather
                 </div>
             </div>
             <div class="info-card">
@@ -74,14 +74,14 @@
                 <div class="info-value">
                     {{ weather_outputs.temperature_c|default_if_none:"—" }}{% if weather_outputs.temperature_c != None %} °C{% endif %}
                 </div>
-                <div class="info-subtext">Latest observation · {% if current_mode %}Live weather{% else %}Historical weather{% endif %}</div>
+                <div class="info-subtext">Latest observation · Live weather</div>
             </div>
             <div class="info-card">
                 <div class="info-label">Humidity</div>
                 <div class="info-value">
                     {{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}
                 </div>
-                <div class="info-subtext">{% if current_mode %}Live weather source{% else %}Historical weather source{% endif %}</div>
+                <div class="info-subtext">Latest observation · Live weather</div>
             </div>
         </div>
     </section>
@@ -91,15 +91,6 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
     window.FLOODINTEL_LOCATIONS = JSON.parse(document.getElementById("floodintel-locations").textContent);
-</script>
-<script>
-    window.FLOODINTEL_RISK = {
-        score: "{{ risk.risk_score|default_if_none:'' }}",
-        level: "{{ risk.risk_level|default_if_none:''|title }}",
-        rainfall24h: "{{ weather_outputs.rainfall_mm|default_if_none:'' }}",
-        rainfall7d: "{{ weather_outputs.rainfall_7d_mm|default_if_none:'' }}",
-        updated: "{{ weather.observed_at|default_if_none:'' }}"
-    };
 </script>
 <script src="{% static 'js/redirect.js' %}"></script>
 </body>
