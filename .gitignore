@@ -36,6 +36,7 @@ staticfiles/
 # Data
 data/raw/
 data/processed/
+backend/apps/risk/data/processed/
 
 # Geospatial / raster outputs
 *.tif
