@@ -16,35 +16,41 @@
 <div class="page">
     <header class="header"><div class="brand"><h1><span class="flood-text">Flood</span><span class="intel-text">Intel</span></h1><p>Intelligent Flash Flood Prediction &amp; Early Warning</p></div></header>
     <section class="location-bar">
-        <div class="location-info"><div class="location-label">Selected Location</div><div class="location-name">{{ location.name }}</div><div class="analysis-date">Analysis date: <strong>{{ analysis_date|date:"d M Y" }}</strong></div></div>
+        <div class="location-info">
+            <div class="location-label">Selected Location</div>
+            <div class="location-name">{{ location.name }}</div>
+            <div class="analysis-date">
+                {% if current_mode %}Live analysis{% else %}Historical analysis{% endif %}: <strong>{{ analysis_date|date:"d M Y" }}</strong>
+            </div>
+        </div>
         <a href="/" class="back-button">← Back to Locations</a>
     </section>
     <section class="map-section"><div class="map-container"><div id="map"></div><div class="map-controls"><button id="zoomIn" type="button" aria-label="Zoom in">+</button><button id="zoomOut" type="button" aria-label="Zoom out">−</button></div></div></section>
 
     {% if analysis_error %}
     <section class="analysis-error">
-        <div class="analysis-error-title">Historical analysis could not be completed</div>
+        <div class="analysis-error-title">{% if current_mode %}Live analysis could not be completed{% else %}Historical analysis could not be completed{% endif %}</div>
         <div class="analysis-error-message">{{ analysis_error }}</div>
-        <div class="analysis-error-help">The selected location and date are valid, but the historical weather source did not return usable data. No risk value has been invented.</div>
+        <div class="analysis-error-help">No risk value has been invented. Check the weather provider configuration and try again.</div>
     </section>
     {% else %}
         {% if risk.risk_level == "high" or risk.risk_level == "severe" %}
-        <section class="flash-alert"><div><div class="alert-label">FloodIntel Model Alert</div><div class="alert-title">FLASH FLOOD ALERT</div><div class="alert-message">The reconstructed conditions for {{ analysis_date|date:"d M Y" }} produce a {{ risk.risk_level|title }} flood-risk classification at this location.</div></div><div class="alert-score">{{ risk.risk_score|floatformat:1 }}<span> / 100</span></div></section>
+        <section class="flash-alert"><div><div class="alert-label">FloodIntel Model Alert</div><div class="alert-title">FLASH FLOOD ALERT</div><div class="alert-message">{% if current_mode %}Current live conditions{% else %}The reconstructed conditions for {{ analysis_date|date:"d M Y" }}{% endif %} produce a {{ risk.risk_level|title }} flood-risk classification at this location.</div></div><div class="alert-score">{{ risk.risk_score|floatformat:1 }}<span> / 100</span></div></section>
         {% endif %}
         <section class="details-section">
-            <div class="details-title">Historical Location Intelligence</div>
+            <div class="details-title">{% if current_mode %}Live Location Intelligence{% else %}Historical Location Intelligence{% endif %}</div>
             <div class="details-grid">
-                <div class="info-card"><div class="info-label">Flood Risk Score</div><div class="info-value">{{ risk.risk_score|default_if_none:"—" }}</div><div class="info-subtext">Calculated for {{ analysis_date|date:"d M Y" }}</div></div>
+                <div class="info-card"><div class="info-label">Flood Risk Score</div><div class="info-value">{{ risk.risk_score|default_if_none:"—" }}</div><div class="info-subtext">{% if current_mode %}Calculated from live conditions{% else %}Calculated for {{ analysis_date|date:"d M Y" }}{% endif %}</div></div>
                 <div class="info-card"><div class="info-label">Risk Level</div><div class="info-value">{{ risk.risk_level|default_if_none:"—"|title }}</div><div class="info-subtext">FloodIntel model classification</div></div>
-                <div class="info-card"><div class="info-label">Rainfall</div><div class="info-value">{{ weather_outputs.rainfall_mm|default_if_none:"—" }}{% if weather_outputs.rainfall_mm != None %} mm{% endif %}</div><div class="info-subtext">Historical 24-hour rainfall</div></div>
-                <div class="info-card"><div class="info-label">Temperature</div><div class="info-value">{{ weather_outputs.temperature_c|default_if_none:"—" }}{% if weather_outputs.temperature_c != None %} °C{% endif %}</div><div class="info-subtext">Historical weather source</div></div>
-                <div class="info-card"><div class="info-label">Humidity</div><div class="info-value">{{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}</div><div class="info-subtext">Historical weather source</div></div>
+                <div class="info-card"><div class="info-label">Rainfall</div><div class="info-value">{{ weather_outputs.rainfall_mm|default_if_none:"—" }}{% if weather_outputs.rainfall_mm != None %} mm{% endif %}</div><div class="info-subtext">{% if current_mode %}AccuWeather live observation{% else %}Historical 24-hour rainfall{% endif %}</div></div>
+                <div class="info-card"><div class="info-label">Temperature</div><div class="info-value">{{ weather_outputs.temperature_c|default_if_none:"—" }}{% if weather_outputs.temperature_c != None %} °C{% endif %}</div><div class="info-subtext">{{ weather_outputs.provider|default:"Weather source" }}</div></div>
+                <div class="info-card"><div class="info-label">Humidity</div><div class="info-value">{{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}</div><div class="info-subtext">Live weather source</div></div>
             </div>
         </section>
         {% if historical_event %}
-        <section class="historical-event"><div><div class="event-label">Historical Flood Event</div><div class="event-title">{{ historical_event.name }}</div><div class="event-meta">{{ historical_event.event_date|date:"d M Y" }} · {{ historical_event.district|default:"Nearby area" }}</div></div><div class="event-severity">{{ historical_event.severity|floatformat:0 }} / 100 severity</div></section>
+        <section class="historical-event"><div><div class="event-label">{% if current_mode %}Nearest Historical Flood Event{% else %}Historical Flood Event{% endif %}</div><div class="event-title">{{ historical_event.name }}</div><div class="event-meta">{{ historical_event.event_date|date:"d M Y" }} · {{ historical_event.district|default:"Nearby area" }}</div></div><div class="event-severity">{{ historical_event.severity|floatformat:0 }} / 100 severity</div></section>
         {% endif %}
-        <section class="status-section"><div class="status-content"><div class="status-text"><strong>Analysis Status</strong><span>Historical weather conditions were reconstructed for the selected date and evaluated by the FloodIntel risk engine.</span></div><div class="status-badge">HISTORICAL ANALYSIS</div></div></section>
+        <section class="status-section"><div class="status-content"><div class="status-text"><strong>Analysis Status</strong><span>{% if current_mode %}Live weather was fetched from the configured provider and evaluated by the FloodIntel risk engine.{% else %}Historical weather conditions were reconstructed for the selected date and evaluated by the FloodIntel risk engine.{% endif %}</span></div><div class="status-badge">{% if current_mode %}LIVE ANALYSIS{% else %}HISTORICAL ANALYSIS{% endif %}</div></div></section>
     {% endif %}
 </div>
 {{ locations|json_script:"floodintel-locations" }}
