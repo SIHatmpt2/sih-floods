@@ -35,6 +35,10 @@
                     <div class="location-label">SELECT DATE</div>
                     <input id="dateSelect" type="date" value="{{ request.GET.date|default:'' }}" max="{% now 'Y-m-d' %}" aria-label="Select analysis date">
                 </div>
+                <div class="selection-field">
+                    <div class="location-label">SELECT TIME (IST)</div>
+                    <input id="timeSelect" type="time" value="{{ request.GET.time|default:'' }}" aria-label="Select analysis time in India Standard Time">
+                </div>
                 <button id="analyzeButton" class="analyze-button" type="button">Analyze</button>
             </div>
         </section>
