@@ -42,6 +42,8 @@
         <div class="live-updated">
             {% if current_mode %}
                 Live data · Updated {{ weather.observed_at|timezone:"Asia/Kolkata"|default_if_none:"—" }}
+            {% elif analysis_datetime %}
+                Historical analysis · {{ analysis_datetime|timezone:"Asia/Kolkata"|date:"Y-m-d H:i" }} IST
             {% else %}
                 Historical analysis · {{ analysis_date|date:"Y-m-d" }}
             {% endif %}
@@ -64,7 +66,7 @@
             </div>
             <div class="info-card">
                 <div class="info-label">Rainfall</div>
-                <div class="info-subtext">Last 24 hours</div>
+                <div class="info-subtext">Previous 24 hours{% if analysis_datetime %} ending at selected time{% endif %}</div>
                 <div class="info-value">
                     {{ weather_outputs.rainfall_mm|default_if_none:"—" }}{% if weather_outputs.rainfall_mm != None %} mm{% endif %}
                 </div>
@@ -101,7 +103,7 @@
         level: "{{ risk.risk_level|default_if_none:''|title }}",
         rainfall24h: "{{ weather_outputs.rainfall_mm|default_if_none:'' }}",
         rainfall7d: "{{ weather_outputs.rainfall_7d_mm|default_if_none:'' }}",
-        updated: "{% if current_mode %}{{ weather.observed_at|default_if_none:'' }}{% else %}{{ analysis_date|date:'Y-m-d' }}{% endif %}"
+        updated: "{% if current_mode %}{{ weather.observed_at|default_if_none:'' }}{% elif analysis_datetime %}{{ analysis_datetime|timezone:'Asia/Kolkata'|date:'Y-m-d H:i' }} IST{% else %}{{ analysis_date|date:'Y-m-d' }}{% endif %}"
     };
 </script>
 <script src="{% static 'js/redirect.js' %}"></script>
