@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
+from zoneinfo import ZoneInfo
 
 from django.core.cache import cache
 
@@ -12,6 +13,7 @@ from django.core.cache import cache
 HISTORICAL_FORECAST_API = "https://historical-forecast-api.open-meteo.com/v1/forecast"
 ARCHIVE_API = "https://archive-api.open-meteo.com/v1/archive"
 NASA_POWER_API = "https://power.larc.nasa.gov/api/temporal/hourly/point"
+IST = ZoneInfo("Asia/Kolkata")
 
 
 class HistoricalWeatherError(RuntimeError):
@@ -102,7 +104,12 @@ class HistoricalWeatherService:
 
         # Final fallback. NASA POWER has global hourly meteorological data
         # from 2001 onward, so it covers every date supported by this feature.
+        # POWER timestamps are UTC here; request one extra UTC day on each side
+        # so the requested Asia/Kolkata calendar window is complete after
+        # timezone conversion.
         try:
+            nasa_start = start_date - timedelta(days=1)
+            nasa_end = end_date + timedelta(days=1)
             payload = self._request(
                 NASA_POWER_API,
                 {
@@ -110,13 +117,13 @@ class HistoricalWeatherService:
                     "community": "RE",
                     "longitude": longitude,
                     "latitude": latitude,
-                    "start": start_date.strftime("%Y%m%d"),
-                    "end": end_date.strftime("%Y%m%d"),
+                    "start": nasa_start.strftime("%Y%m%d"),
+                    "end": nasa_end.strftime("%Y%m%d"),
                     "format": "JSON",
                     "time-standard": "UTC",
                 },
             )
-            result = self._build_nasa_result(payload, analysis_date)
+            result = self._build_nasa_result(payload, analysis_date, start_date, end_date)
             cache.set(cache_key, result, timeout=60 * 60 * 24 * 30)
             return result
         except (
@@ -195,7 +202,13 @@ class HistoricalWeatherService:
             },
         }
 
-    def _build_nasa_result(self, payload: dict, analysis_date: date) -> dict:
+    def _build_nasa_result(
+        self,
+        payload: dict,
+        analysis_date: date,
+        start_date: date,
+        end_date: date,
+    ) -> dict:
         parameters = ((payload.get("properties") or {}).get("parameter") or {})
         temperature = parameters.get("T2M") or {}
         humidity = parameters.get("RH2M") or {}
@@ -215,17 +228,21 @@ class HistoricalWeatherService:
                 f"NASA POWER returned no hourly observations for {analysis_date.isoformat()}."
             )
 
-        date_prefix = analysis_date.strftime("%Y%m%d")
         rows = []
-        all_rain = []
+        window_rain = []
         for timestamp in timestamps:
+            utc_time = datetime.strptime(timestamp, "%Y%m%d%H").replace(tzinfo=timezone.utc)
+            local_time = utc_time.astimezone(IST)
+            local_date = local_time.date()
+
             rain_value = self._nasa_number(precipitation.get(timestamp))
-            if rain_value is not None:
-                all_rain.append(rain_value)
-            if not timestamp.startswith(date_prefix):
+            if start_date <= local_date <= end_date and rain_value is not None:
+                window_rain.append((local_time, rain_value))
+
+            if local_date != analysis_date:
                 continue
             rows.append({
-                "time": timestamp,
+                "time": local_time.isoformat(),
                 "precipitation": rain_value,
                 "rain": rain_value,
                 "temperature_c": self._nasa_number(temperature.get(timestamp)),
@@ -239,6 +256,9 @@ class HistoricalWeatherService:
                 f"NASA POWER returned no observations for {analysis_date.isoformat()}."
             )
 
+        rows.sort(key=lambda row: row["time"])
+        window_rain.sort(key=lambda item: item[0])
+        all_rain = [value for _, value in window_rain]
         selected_rain = [row["precipitation"] for row in rows if row["precipitation"] is not None]
         recent_rain = all_rain[-72:]
         last = rows[-1]
