@@ -75,43 +75,27 @@ class HistoricalWeatherService:
             try:
                 payload = self._request(HISTORICAL_FORECAST_API, common)
                 result = self._build_result(
-                    payload,
-                    analysis_date,
+                    payload, analysis_date,
                     source="open-meteo-historical-forecast",
                     dataset="Open-Meteo Historical Forecast",
                     analysis_datetime=analysis_datetime,
                 )
                 cache.set(cache_key, result, timeout=60 * 60 * 24 * 30)
                 return result
-            except (
-                HTTPError,
-                URLError,
-                TimeoutError,
-                OSError,
-                ValueError,
-                HistoricalWeatherError,
-            ) as exc:
+            except (HTTPError, URLError, TimeoutError, OSError, ValueError, HistoricalWeatherError) as exc:
                 errors.append(f"Open-Meteo Historical Forecast: {exc}")
 
         try:
             payload = self._request(ARCHIVE_API, {**common, "models": "era5"})
             result = self._build_result(
-                payload,
-                analysis_date,
+                payload, analysis_date,
                 source="open-meteo-era5",
                 dataset="ERA5 reanalysis",
                 analysis_datetime=analysis_datetime,
             )
             cache.set(cache_key, result, timeout=60 * 60 * 24 * 30)
             return result
-        except (
-            HTTPError,
-            URLError,
-            TimeoutError,
-            OSError,
-            ValueError,
-            HistoricalWeatherError,
-        ) as exc:
+        except (HTTPError, URLError, TimeoutError, OSError, ValueError, HistoricalWeatherError) as exc:
             errors.append(f"Open-Meteo ERA5: {exc}")
 
         try:
@@ -131,26 +115,15 @@ class HistoricalWeatherService:
                 },
             )
             result = self._build_nasa_result(
-                payload,
-                analysis_date,
-                start_date,
-                end_date,
+                payload, analysis_date, start_date, end_date,
                 analysis_datetime=analysis_datetime,
             )
             cache.set(cache_key, result, timeout=60 * 60 * 24 * 30)
             return result
-        except (
-            HTTPError,
-            URLError,
-            TimeoutError,
-            OSError,
-            ValueError,
-            HistoricalWeatherError,
-        ) as exc:
+        except (HTTPError, URLError, TimeoutError, OSError, ValueError, HistoricalWeatherError) as exc:
             errors.append(f"NASA POWER: {exc}")
             raise HistoricalWeatherError(
-                f"Historical weather API failed for {analysis_date.isoformat()}: "
-                + " | ".join(errors)
+                f"Historical weather API failed for {analysis_date.isoformat()}: " + " | ".join(errors)
             ) from exc
 
     def _build_result(
@@ -186,23 +159,14 @@ class HistoricalWeatherService:
                     "pressure_hpa": self._number(pressure, index),
                 })
             if not rows:
-                raise HistoricalWeatherError(
-                    f"No hourly observations were returned for {analysis_date.isoformat()}."
-                )
+                raise HistoricalWeatherError(f"No hourly observations were returned for {analysis_date.isoformat()}.")
             all_rain = [self._number(value) for value in precipitation if self._number(value) is not None]
             selected_rain = [row["precipitation"] for row in rows if row["precipitation"] is not None]
             recent_rain = all_rain[-72:] if all_rain else []
             last = rows[-1]
             return self._result_payload(
-                analysis_date,
-                analysis_datetime,
-                rows,
-                selected_rain,
-                all_rain[-48:],
-                recent_rain,
-                last,
-                source,
-                dataset,
+                analysis_date, None, rows, selected_rain, all_rain[-48:], recent_rain,
+                last, source, dataset, rainfall_7d=all_rain,
             )
 
         cutoff = analysis_datetime.astimezone(IST) if analysis_datetime.tzinfo else analysis_datetime.replace(tzinfo=IST)
@@ -222,55 +186,33 @@ class HistoricalWeatherService:
                 }))
 
         if not parsed_rows:
-            raise HistoricalWeatherError(
-                f"No hourly observations were returned through {cutoff.isoformat()}."
-            )
+            raise HistoricalWeatherError(f"No hourly observations were returned through {cutoff.isoformat()}.")
 
         parsed_rows.sort(key=lambda item: item[0])
         rows = [row for local_time, row in parsed_rows if local_time.date() == analysis_date]
         available = [(local_time, row["precipitation"]) for local_time, row in parsed_rows if row["precipitation"] is not None]
         if not rows:
-            raise HistoricalWeatherError(
-                f"No hourly observations were returned for {analysis_date.isoformat()}."
-            )
+            raise HistoricalWeatherError(f"No hourly observations were returned for {analysis_date.isoformat()}.")
 
-        def window_sum(hours: int) -> list[float]:
+        def window_values(hours: int) -> list[float]:
             start = cutoff - timedelta(hours=hours)
             return [value for local_time, value in available if start < local_time <= cutoff]
 
-        rain_24 = window_sum(24)
-        rain_48 = window_sum(48)
-        rain_72 = window_sum(72)
-        rain_168 = window_sum(168)
+        rain_24 = window_values(24)
+        rain_48 = window_values(48)
+        rain_72 = window_values(72)
+        rain_168 = window_values(168)
         last = parsed_rows[-1][1]
         return self._result_payload(
-            analysis_date,
-            cutoff,
-            rows,
-            rain_24,
-            rain_48,
-            rain_72,
-            last,
-            source,
-            dataset,
-            rainfall_7d=rain_168,
+            analysis_date, cutoff, rows, rain_24, rain_48, rain_72,
+            last, source, dataset, rainfall_7d=rain_168,
             selected_observations=len(available),
         )
 
+    @staticmethod
     def _result_payload(
-        self,
-        analysis_date,
-        analysis_datetime,
-        rows,
-        rain_24,
-        rain_48,
-        rain_72,
-        last,
-        source,
-        dataset,
-        *,
-        rainfall_7d=None,
-        selected_observations=None,
+        analysis_date, analysis_datetime, rows, rain_24, rain_48, rain_72,
+        last, source, dataset, *, rainfall_7d=None, selected_observations=None,
     ):
         return {
             "analysis_date": analysis_date.isoformat(),
@@ -296,11 +238,7 @@ class HistoricalWeatherService:
         }
 
     def _build_nasa_result(
-        self,
-        payload: dict,
-        analysis_date: date,
-        start_date: date,
-        end_date: date,
+        self, payload: dict, analysis_date: date, start_date: date, end_date: date,
         analysis_datetime: datetime | None = None,
     ) -> dict:
         parameters = ((payload.get("properties") or {}).get("parameter") or {})
@@ -309,12 +247,9 @@ class HistoricalWeatherService:
         precipitation = parameters.get("PRECTOTCORR") or {}
         wind = parameters.get("WS10M") or {}
         pressure = parameters.get("PS") or {}
-
         timestamps = sorted(set(temperature) | set(humidity) | set(precipitation) | set(wind) | set(pressure))
         if not timestamps:
-            raise HistoricalWeatherError(
-                f"NASA POWER returned no hourly observations for {analysis_date.isoformat()}."
-            )
+            raise HistoricalWeatherError(f"NASA POWER returned no hourly observations for {analysis_date.isoformat()}.")
 
         rows = []
         window_rain = []
@@ -328,14 +263,9 @@ class HistoricalWeatherService:
             local_time = utc_time.astimezone(IST)
             local_date = local_time.date()
             rain_value = self._nasa_number(precipitation.get(timestamp))
-
-            if cutoff is not None:
-                in_window = window_start < local_time <= cutoff
-            else:
-                in_window = start_date <= local_date <= end_date
+            in_window = window_start < local_time <= cutoff if cutoff is not None else start_date <= local_date <= end_date
             if in_window and rain_value is not None:
                 window_rain.append((local_time, rain_value))
-
             if local_date != analysis_date or (cutoff is not None and local_time > cutoff):
                 continue
             rows.append({
@@ -349,36 +279,21 @@ class HistoricalWeatherService:
             })
 
         if not rows:
-            raise HistoricalWeatherError(
-                f"NASA POWER returned no observations for {analysis_date.isoformat()}."
-            )
-
+            raise HistoricalWeatherError(f"NASA POWER returned no observations for {analysis_date.isoformat()}.")
         rows.sort(key=lambda row: row["time"])
         window_rain.sort(key=lambda item: item[0])
         all_rain = [value for _, value in window_rain]
         if cutoff is None:
             rain_24 = [row["precipitation"] for row in rows if row["precipitation"] is not None]
-            rain_48 = all_rain[-48:]
-            rain_72 = all_rain[-72:]
-            rain_7d = all_rain
+            rain_48, rain_72, rain_7d = all_rain[-48:], all_rain[-72:], all_rain
         else:
-            rain_24 = [value for local_time, value in window_rain if cutoff - timedelta(hours=24) < local_time <= cutoff]
-            rain_48 = [value for local_time, value in window_rain if cutoff - timedelta(hours=48) < local_time <= cutoff]
-            rain_72 = [value for local_time, value in window_rain if cutoff - timedelta(hours=72) < local_time <= cutoff]
+            rain_24 = [v for t, v in window_rain if cutoff - timedelta(hours=24) < t <= cutoff]
+            rain_48 = [v for t, v in window_rain if cutoff - timedelta(hours=48) < t <= cutoff]
+            rain_72 = [v for t, v in window_rain if cutoff - timedelta(hours=72) < t <= cutoff]
             rain_7d = all_rain
-
-        last = rows[-1]
         return self._result_payload(
-            analysis_date,
-            cutoff,
-            rows,
-            rain_24,
-            rain_48,
-            rain_72,
-            last,
-            "nasa-power",
-            "NASA POWER MERRA-2",
-            rainfall_7d=rain_7d,
+            analysis_date, cutoff, rows, rain_24, rain_48, rain_72, rows[-1],
+            "nasa-power", "NASA POWER MERRA-2", rainfall_7d=rain_7d,
             selected_observations=len(window_rain),
         )
 
@@ -392,10 +307,7 @@ class HistoricalWeatherService:
     @staticmethod
     def _request(endpoint: str, params: dict) -> dict:
         query = urlencode(params)
-        request = Request(
-            f"{endpoint}?{query}",
-            headers={"Accept": "application/json", "User-Agent": "FloodIntel/1.0"},
-        )
+        request = Request(f"{endpoint}?{query}", headers={"Accept": "application/json", "User-Agent": "FloodIntel/1.0"})
         with urlopen(request, timeout=30) as response:
             payload = json.loads(response.read().decode("utf-8"))
         if payload.get("error"):
@@ -404,12 +316,7 @@ class HistoricalWeatherService:
 
     @staticmethod
     def _number(values, index=None):
-        if index is None:
-            value = values
-        elif index >= len(values):
-            return None
-        else:
-            value = values[index]
+        value = values if index is None else (values[index] if index < len(values) else None)
         return float(value) if value is not None else None
 
     @staticmethod
