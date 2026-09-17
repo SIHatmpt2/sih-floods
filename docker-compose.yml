@@ -2,7 +2,6 @@ services:
 
   db:
     image: postgis/postgis:16-3.4
-    container_name: flood_db
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-flood_db}
@@ -11,7 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-flood_user} -d ${POSTGRES_DB:-flood_db}"]
       interval: 5s
@@ -20,14 +19,12 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: flood_redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_HOST_PORT:-6379}:6379"
 
   minio:
     image: minio/minio:latest
-    container_name: flood_minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -36,14 +33,13 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${MINIO_API_HOST_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_HOST_PORT:-9001}:9001"
 
   backend:
     build:
       context: .
       dockerfile: docker/django/Dockerfile
-    container_name: flood_backend
     restart: unless-stopped
     env_file:
       - .env
@@ -58,7 +54,7 @@ services:
     volumes:
       - ./backend:/app
     ports:
-      - "8000:8000"
+      - "${BACKEND_HOST_PORT:-8000}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -72,7 +68,6 @@ services:
     build:
       context: .
       dockerfile: docker/django/Dockerfile
-    container_name: flood_worker
     restart: unless-stopped
     env_file:
       - .env
