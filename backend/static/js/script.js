@@ -30,14 +30,21 @@ function createSelectedMarker(center, name) {
 
 function focusLocation(selected, animate = true) {
     if (!map || !selected) return;
+
     const center = [Number(selected.lat), Number(selected.lng)];
-    map.setView(center, 11, { animate, duration: 0.8 });
+
+    map.setView(center, 11, {
+        animate: animate,
+        duration: 0.8
+    });
+
     createSelectedMarker(center, selected.name);
 }
 
 function initMap() {
     const mapElement = document.getElementById("map");
     const selected = getSelectedLocation();
+
     if (!mapElement || !selected || typeof L === "undefined") return;
 
     if (map) {
@@ -46,6 +53,7 @@ function initMap() {
     }
 
     const center = [Number(selected.lat), Number(selected.lng)];
+
     map = L.map(mapElement, {
         zoomControl: false,
         attributionControl: true,
@@ -54,10 +62,14 @@ function initMap() {
 
     L.tileLayer(
         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
-        { maxZoom: 19, attribution: "Tiles &copy; Esri" }
+        {
+            maxZoom: 19,
+            attribution: "Tiles &copy; Esri"
+        }
     ).addTo(map);
 
     createSelectedMarker(center, selected.name);
+
     window.setTimeout(() => map?.invalidateSize(), 0);
 }
 
@@ -65,21 +77,24 @@ window.initFloodIntelMap = initMap;
 
 const locationSelect = document.getElementById("locationSelect");
 const dateSelect = document.getElementById("dateSelect");
-const timeSelect = document.getElementById("timeSelect");
 const analyzeButton = document.getElementById("analyzeButton");
 
-locationSelect?.addEventListener("change", function () {
-    const selectedLocation = locations[this.value];
-    if (selectedLocation) focusLocation(selectedLocation, true);
-});
+if (locationSelect) {
+    locationSelect.addEventListener("change", function () {
+        const selectedLocation = locations[this.value];
+
+        if (!selectedLocation) return;
+
+        focusLocation(selectedLocation, true);
+    });
+}
 
 function runAnalysis() {
     const location = locationSelect?.value;
     const selectedDate = dateSelect?.value;
-    const selectedTime = timeSelect?.value;
 
     if (!location || !selectedDate) {
-        window.alert("Please select a location and date.");
+        window.alert("Please select both a location and a date.");
         return;
     }
 
@@ -96,7 +111,6 @@ function runAnalysis() {
     const url = new URL(window.location.origin + "/");
     url.searchParams.set("location", location);
     url.searchParams.set("date", selectedDate);
-    if (selectedTime) url.searchParams.set("time", selectedTime);
     window.location.assign(url.toString());
 }
 
@@ -104,12 +118,15 @@ analyzeButton?.addEventListener("click", runAnalysis);
 dateSelect?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") runAnalysis();
 });
-timeSelect?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") runAnalysis();
+
+document.getElementById("zoomIn")?.addEventListener("click", () => {
+    map?.zoomIn();
 });
 
-document.getElementById("zoomIn")?.addEventListener("click", () => map?.zoomIn());
-document.getElementById("zoomOut")?.addEventListener("click", () => map?.zoomOut());
+document.getElementById("zoomOut")?.addEventListener("click", () => {
+    map?.zoomOut();
+});
+
 document.addEventListener("DOMContentLoaded", initMap);
 
 const markerStyle = document.createElement("style");
