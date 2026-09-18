@@ -28,6 +28,9 @@ _COLUMN_ALIASES = {
     "estimated_trees_km_2": "tree_density_text",
     "estimated_trees_km2": "tree_density_text",
     "estimated_trees": "tree_density_text",
+    "trees_km": "tree_density_text",
+    "trees_per_km2": "tree_density_text",
+    "trees_per_km_2": "tree_density_text",
 }
 
 CANONICAL_COLUMNS = [
