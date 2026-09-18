@@ -137,3 +137,18 @@ def test_alert_policy_uses_numeric_hours_without_timedelta_warnings():
         metrics = evaluate_event_level(event_evaluation, threshold=0.1, min_consecutive_alerts=2, cooldown_hours=1.0)
     assert alerted["alert"].tolist() == [False, True, False, False]
     assert metrics["event_count"] == 1
+
+
+def test_v2_feature_columns_include_historical_terrain():
+    terrain = {
+        "historical_slope_min_deg",
+        "historical_slope_max_deg",
+        "historical_slope_mid_deg",
+        "historical_river_distance_min_m",
+        "historical_river_distance_max_m",
+        "historical_river_distance_mid_m",
+        "historical_land_cover_min_km2",
+        "historical_land_cover_max_km2",
+        "historical_land_cover_mid_km2",
+    }
+    assert terrain.issubset(set(FEATURE_COLUMNS))
