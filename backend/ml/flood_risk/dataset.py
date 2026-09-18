@@ -1,4 +1,4 @@
-"""Build the V1 supervised flood-risk training table.
+"""Build the V2 supervised flood-risk training table.
 
 V1 uses river observations as the temporal backbone and joins rainfall,
 historical flood events, and glacier state. Future event information is never
@@ -17,7 +17,7 @@ import pandas as pd
 LOGGER = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_ROOT = PROJECT_ROOT / "apps" / "risk" / "data"
-DEFAULT_OUTPUT = DEFAULT_DATA_ROOT / "processed" / "training_v1.parquet"
+DEFAULT_OUTPUT = DEFAULT_DATA_ROOT / "processed" / "v2_train.parquet"
 TARGET_COLUMN = "flood_next_72h"
 RAIN_FEATURES = ["rainfall_24h", "rainfall_48h", "rainfall_72h", "rainfall_7d", "rainfall_30d"]
 RIVER_FEATURES = [
@@ -31,6 +31,11 @@ RIVER_FEATURES = [
     "discharge_rolling_mean_24h", "discharge_rolling_max_24h", "discharge_rolling_std_24h",
 ]
 HISTORICAL_FEATURES = ["flood_count_1y", "flood_count_3y", "flood_count_5y", "days_since_last_flood", "historical_max_severity", "historical_mean_severity", "historical_glof_count"]
+TERRAIN_FEATURES = [
+    "historical_slope_min_deg", "historical_slope_max_deg", "historical_slope_mid_deg",
+    "historical_river_distance_min_m", "historical_river_distance_max_m", "historical_river_distance_mid_m",
+    "historical_land_cover_min_km2", "historical_land_cover_max_km2", "historical_land_cover_mid_km2",
+]
 GLACIER_FEATURES = [
     "glacier_area_km2", "glacier_area_change_1y_km2", "glacier_area_change_1y_pct",
     "glacier_cumulative_area_change_km2", "glacier_cumulative_area_change_pct",
@@ -186,6 +191,37 @@ def _add_historical_features(rows: pd.DataFrame, events: pd.DataFrame) -> pd.Dat
     return out
 
 
+def _add_historical_terrain_features(rows: pd.DataFrame, events: pd.DataFrame) -> pd.DataFrame:
+    """Add the most recent prior event terrain values, avoiding future leakage."""
+    out = rows.copy()
+    event_columns = {
+        "slope_min_deg": "historical_slope_min_deg", "slope_max_deg": "historical_slope_max_deg", "slope_mid_deg": "historical_slope_mid_deg",
+        "river_distance_min_m": "historical_river_distance_min_m", "river_distance_max_m": "historical_river_distance_max_m", "river_distance_mid_m": "historical_river_distance_mid_m",
+        "land_cover_min_km2": "historical_land_cover_min_km2", "land_cover_max_km2": "historical_land_cover_max_km2", "land_cover_mid_km2": "historical_land_cover_mid_km2",
+    }
+    for column in event_columns.values():
+        out[column] = np.nan
+    mapping = _event_map(out, events)
+    for station_id, idx in out.groupby("station_id", sort=False).groups.items():
+        matched = mapping.get(str(station_id))
+        if matched is None:
+            continue
+        dates = pd.to_datetime(matched["event_date"], errors="coerce").to_numpy(dtype="datetime64[ns]")
+        order = np.argsort(dates)
+        matched = matched.iloc[order].reset_index(drop=True)
+        dates = dates[order]
+        ts = out.loc[idx, "observed_at"].to_numpy(dtype="datetime64[ns]")
+        pos = np.searchsorted(dates, ts, side="left") - 1
+        valid = pos >= 0
+        if not valid.any():
+            continue
+        out_idx = np.asarray(idx)[valid]
+        prior = matched.iloc[pos[valid]]
+        for source, target in event_columns.items():
+            values = pd.to_numeric(prior.get(source, pd.Series(np.nan, index=prior.index)), errors="coerce").to_numpy(dtype=float)
+            out.loc[out_idx, target] = values
+    return out
+
 def _label_events(rows: pd.DataFrame, events: pd.DataFrame, horizon_hours: int) -> pd.Series:
     _require(events, {"event_date", "location"}, "flood events")
     e = events.copy()
@@ -304,6 +340,7 @@ def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd
     del rain
     LOGGER.info("Adding historical flood features")
     base = _add_historical_features(base, events)
+    base = _add_historical_terrain_features(base, events)
     for c in GLACIER_FEATURES:
         if c not in base.columns:
             base[c] = np.nan
@@ -315,7 +352,7 @@ def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd
     base["month"] = base.observed_at.dt.month.astype("int8")
     base["day_of_year"] = base.observed_at.dt.dayofyear.astype("int16")
     base["is_monsoon"] = base.month.isin([6, 7, 8, 9]).astype("int8")
-    ordered = ["station_id", "observed_at", "station", "state", "district", "river", "basin"] + RAIN_FEATURES + RIVER_FEATURES + HISTORICAL_FEATURES + GLACIER_FEATURES + ["month", "day_of_year", "is_monsoon", TARGET_COLUMN]
+    ordered = ["station_id", "observed_at", "station", "state", "district", "river", "basin"] + RAIN_FEATURES + RIVER_FEATURES + HISTORICAL_FEATURES + TERRAIN_FEATURES + GLACIER_FEATURES + ["month", "day_of_year", "is_monsoon", TARGET_COLUMN]
     return base[[c for c in ordered if c in base.columns]].sort_values(["station_id", "observed_at"], kind="stable").reset_index(drop=True)
 
 
@@ -382,21 +419,21 @@ def load_processed_inputs(data_root: str | Path = DEFAULT_DATA_ROOT):
 
 def build_training_dataset(data_root: str | Path = DEFAULT_DATA_ROOT, output_path: str | Path | None = None, rainfall_max_distance_km: float = 50.0, horizon_hours: int = 72) -> Path:
     root = Path(data_root)
-    output = Path(output_path) if output_path is not None else root / "processed" / "training_v1.parquet"
+    output = Path(output_path) if output_path is not None else root / "processed" / "v2_train.parquet"
     river, rainfall, events, glaciers = load_processed_inputs(root)
     LOGGER.info("Input sizes: river=%d rainfall=%d events=%d glaciers=%s", len(river), len(rainfall), len(events), len(glaciers) if glaciers is not None else "none")
     table = build_training_table(river, rainfall, events, glaciers, rainfall_max_distance_km, horizon_hours)
     if table.empty:
-        raise ValueError("V1 training table is empty")
+        raise ValueError("V2 training table is empty")
     positives = int(table[TARGET_COLUMN].sum())
     LOGGER.info("V1 training table: rows=%d columns=%d positives=%d negatives=%d", len(table), len(table.columns), positives, len(table) - positives)
-    LOGGER.info("V1 date range: %s -> %s", table.observed_at.min(), table.observed_at.max())
-    LOGGER.info("V1 missingness (top 10): %s", table.isna().mean().sort_values(ascending=False).head(10).to_dict())
+    LOGGER.info("V2 date range: %s -> %s", table.observed_at.min(), table.observed_at.max())
+    LOGGER.info("V2 missingness (top 10): %s", table.isna().mean().sort_values(ascending=False).head(10).to_dict())
     return write_training_table(table, output)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build the V1 flood-risk training Parquet")
+    parser = argparse.ArgumentParser(description="Build the V2 flood-risk training Parquet")
     parser.add_argument("--data-root", type=Path, default=DEFAULT_DATA_ROOT)
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--rainfall-max-distance-km", type=float, default=50.0)
@@ -404,7 +441,7 @@ def main() -> int:
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     output = build_training_dataset(args.data_root, args.output, args.rainfall_max_distance_km, args.horizon_hours)
-    LOGGER.info("V1 training dataset written to %s", output)
+    LOGGER.info("V2 training dataset written to %s", output)
     return 0
 
 
