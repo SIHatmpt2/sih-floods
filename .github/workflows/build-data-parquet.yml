@@ -38,6 +38,14 @@ jobs:
             sih-floods-backend-ci \
             python -m data_processing.past_events.pipeline
 
+      - name: Build carbon Parquet
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/backend:/app" \
+            -w /app \
+            sih-floods-backend-ci \
+            python -m data_processing.carbon.pipeline
+
       - name: Build V2 training Parquet
         run: |
           docker run --rm \
@@ -62,5 +70,6 @@ jobs:
             backend/apps/risk/data/processed/river_data/parquet/*.parquet
             backend/apps/risk/data/processed/rainfall/parquet/*.parquet
             backend/apps/risk/data/processed/past_events/parquet/*.parquet
+            backend/apps/risk/data/processed/carbon_emission/parquet/*.parquet
             backend/apps/risk/data/processed/v2_train.parquet
           if-no-files-found: error
