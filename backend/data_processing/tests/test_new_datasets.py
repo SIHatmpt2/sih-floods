@@ -18,6 +18,8 @@ def test_clean_and_feature_event_data(tmp_path):
         "Slope(In degrees)": ["45° to 75°", "45° to 75°", "0° to 3°"],
         "River distance(metres)": ["0-50m", "0-50m", "0m"],
         "Land cover(km²) only Flash Flood affected area covered": ["Approx 0.026", "Approx 0.026", "Approx 500"],
+        "Forest cover": ["68%", "68%", "28%"],
+        "Estimated trees/km²": ["46,000", "46,000", "14,000"],
         "CO2 emissions in tons/year": ["3,100", "3,100", "47,000"],
     })
     cleaned = clean_past_events_data(df, source)
@@ -32,3 +34,5 @@ def test_clean_and_feature_event_data(tmp_path):
     assert featured.loc[0, "river_distance_mid_m"] == 25.0
     assert featured.loc[0, "land_cover_mid_km2"] == 0.026
     assert featured.loc[0, "co2_emissions_tons_year"] == 3100.0
+    assert featured.loc[0, "forest_cover_pct"] == 68.0
+    assert featured.loc[0, "tree_density_per_km2"] == 46000.0
