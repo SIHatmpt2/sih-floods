@@ -23,6 +23,9 @@ _COLUMN_ALIASES = {
     "land_cover_km_only_flash_flood_affected_area_covered": "land_cover_range_text",
     "co2_emissions_in_tons_year": "co2_emissions_tons_year",
     "co2_emissions_tons_year": "co2_emissions_tons_year",
+    "forest_cover": "forest_cover_pct_text",
+    "estimated_trees_km2": "tree_density_text",
+    "estimated_trees_km_2": "tree_density_text",
 }
 
 CANONICAL_COLUMNS = [
@@ -36,6 +39,7 @@ _NUMERIC_COLUMNS = [
     "peak_waterlevel_m", "severity_index", "slope_min_deg", "slope_max_deg", "slope_mid_deg",
     "river_distance_min_m", "river_distance_max_m", "river_distance_mid_m",
     "land_cover_min_km2", "land_cover_max_km2", "land_cover_mid_km2", "co2_emissions_tons_year",
+    "forest_cover_pct", "tree_density_per_km2",
 ]
 
 
@@ -110,6 +114,8 @@ def clean_past_events_data(df: pd.DataFrame, source_file: str | Path) -> pd.Data
     result["land_cover_min_km2"], result["land_cover_max_km2"] = land_cover[0], land_cover[1]
     result["land_cover_mid_km2"] = land_cover.mean(axis=1)
     result["co2_emissions_tons_year"] = result.get("co2_emissions_tons_year", pd.Series(index=result.index, dtype="string")).map(_extract_number)
+    result["forest_cover_pct"] = result.get("forest_cover_pct_text", pd.Series(index=result.index, dtype="string")).map(_extract_number)
+    result["tree_density_per_km2"] = result.get("tree_density_text", pd.Series(index=result.index, dtype="string")).map(_extract_number)
     result["source_file"] = Path(source_file).as_posix()
     result["source_row_number"] = np.arange(1, len(result) + 1, dtype=np.int64)
     result = result.dropna(subset=["event_id", "event_date"]).copy()
