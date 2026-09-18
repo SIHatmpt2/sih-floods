@@ -26,6 +26,8 @@ _COLUMN_ALIASES = {
     "forest_cover": "forest_cover_pct_text",
     "estimated_trees_km2": "tree_density_text",
     "estimated_trees_km_2": "tree_density_text",
+    "estimated_trees_km2": "tree_density_text",
+    "estimated_trees": "tree_density_text",
 }
 
 CANONICAL_COLUMNS = [
