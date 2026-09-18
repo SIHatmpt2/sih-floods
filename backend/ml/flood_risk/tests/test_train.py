@@ -17,6 +17,8 @@ from ml.flood_risk.train import (
     train_model,
     tune_threshold,
     tune_threshold_event_aware,
+    monotone_constraints,
+    FEATURE_COLUMNS,
 )
 
 
@@ -152,3 +154,14 @@ def test_v2_feature_columns_include_historical_terrain():
         "historical_land_cover_mid_km2",
     }
     assert terrain.issubset(set(FEATURE_COLUMNS))
+
+
+def test_v2_domain_monotonic_constraints_encode_environment_and_slope_rules():
+    constraints = dict(zip(FEATURE_COLUMNS, monotone_constraints(FEATURE_COLUMNS)))
+    assert constraints["forest_cover_pct"] == -1
+    assert constraints["tree_density_per_km2"] == -1
+    assert constraints["co2_emissions_tons_year"] == 1
+    assert constraints["historical_slope_mid_deg"] == 1
+    assert constraints["discharge_rise_3h"] == 1
+    assert constraints["slope_discharge_rise_3h"] == 1
+    assert constraints["forest_carbon_pressure"] == 1
