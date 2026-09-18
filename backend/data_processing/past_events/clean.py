@@ -33,7 +33,7 @@ _NUMERIC_COLUMNS = ["peak_waterlevel_m", "severity_index", "slope_min_deg", "slo
 
 
 def _normalize_name(name: object) -> str:
-    value = str(name).replace("\\ufeff", "").strip().lower()
+    value = str(name).replace("\ufeff", "").strip().lower()
     return re.sub(r"[^a-z0-9]+", "_", value).strip("_")
 
 
@@ -45,7 +45,7 @@ def _nullify_text(series: pd.Series) -> pd.Series:
 def _extract_number(value: object) -> float:
     if pd.isna(value):
         return np.nan
-    match = re.search(r"[-+]?\\d+(?:\\.\\d+)?", str(value).replace(",", ""))
+    match = re.search(r"[-+]?\d+(?:\.\d+)?", str(value).replace(",", ""))
     return float(match.group()) if match else np.nan
 
 
@@ -54,7 +54,7 @@ def _extract_range(value: object, upper_default: float | None = None) -> tuple[f
     if pd.isna(value):
         return np.nan, np.nan
     text = str(value).strip().lower().replace(",", "")
-    numbers = [float(x) for x in re.findall(r"[-+]?\\d+(?:\\.\\d+)?", text)]
+    numbers = [float(x) for x in re.findall(r"[-+]?\d+(?:\.\d+)?", text)]
     if not numbers:
         if upper_default is not None and "vertical" in text:
             return upper_default, upper_default
