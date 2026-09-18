@@ -1,4 +1,4 @@
-"""Train and evaluate the V1.5 XGBoost flood-risk model."""
+"""Train and evaluate the V2 XGBoost flood-risk model."""
 from __future__ import annotations
 
 import argparse
@@ -23,8 +23,8 @@ from ml.flood_risk.dataset import TARGET_COLUMN
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_DATASET = Path("apps/risk/data/processed/v2_train.parquet")
-DEFAULT_MODEL = Path("models/flood_risk_v1.json")
-DEFAULT_METADATA = Path("models/flood_risk_v1.metadata.json")
+DEFAULT_MODEL = Path("models/flood_risk_v2.json")
+DEFAULT_METADATA = Path("models/flood_risk_v2.metadata.json")
 DEFAULT_WEIGHT_SWEEP = (0.25, 0.5, 1.0, 2.0, 4.0)
 DEFAULT_MIN_CONSECUTIVE_ALERTS = 6
 DEFAULT_ALERT_COOLDOWN_HOURS = 72.0
@@ -533,7 +533,7 @@ def _parse_weight_sweep(value: str) -> tuple[float, ...]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Train the V1.5 XGBoost flood-risk model")
+    parser = argparse.ArgumentParser(description="Train the V2 XGBoost flood-risk model")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
     parser.add_argument("--metadata", type=Path, default=DEFAULT_METADATA)
