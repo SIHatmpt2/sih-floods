@@ -1,4 +1,4 @@
-"""Cleaning and canonicalization for historical flood-event data."""
+""""Cleaning and canonicalization for historical flood-event data."""
 
 from __future__ import annotations
 
@@ -26,14 +26,14 @@ CANONICAL_COLUMNS = [
     "event_id", "location", "event_date", "duration_text", "temperature_change_text", "rain_3weeks_text",
     "wind_before", "wind_after", "glacier_impact", "glof_risk", "peak_waterlevel_text", "regularity",
     "return_interval_text", "snowmelt", "cloudburst", "steep_topography", "landslide", "deforestation",
-    "encroachment", "major_causes", "casualties", "victims", "severity_index_text", "slope_range_text", "river_distance_range_text", "land_cover_range_text", "source_file",
-    "source_row_number", "slope_range_text", "river_distance_range_text", "land_cover_range_text",
+    "encroachment", "major_causes", "casualties", "victims", "severity_index_text", "slope_range_text",
+    "river_distance_range_text", "land_cover_range_text", "source_file", "source_row_number",
 ]
 _NUMERIC_COLUMNS = ["peak_waterlevel_m", "severity_index", "slope_min_deg", "slope_max_deg", "slope_mid_deg", "river_distance_min_m", "river_distance_max_m", "river_distance_mid_m", "land_cover_min_km2", "land_cover_max_km2", "land_cover_mid_km2"]
 
 
 def _normalize_name(name: object) -> str:
-    value = str(name).replace("\ufeff", "").strip().lower()
+    value = str(name).replace("\\ufeff", "").strip().lower()
     return re.sub(r"[^a-z0-9]+", "_", value).strip("_")
 
 
@@ -45,7 +45,7 @@ def _nullify_text(series: pd.Series) -> pd.Series:
 def _extract_number(value: object) -> float:
     if pd.isna(value):
         return np.nan
-    match = re.search(r"[-+]?\d+(?:\.\d+)?", str(value).replace(",", ""))
+    match = re.search(r"[-+]?\\d+(?:\\.\\d+)?", str(value).replace(",", ""))
     return float(match.group()) if match else np.nan
 
 
@@ -54,7 +54,7 @@ def _extract_range(value: object, upper_default: float | None = None) -> tuple[f
     if pd.isna(value):
         return np.nan, np.nan
     text = str(value).strip().lower().replace(",", "")
-    numbers = [float(x) for x in re.findall(r"[-+]?\d+(?:\.\d+)?", text)]
+    numbers = [float(x) for x in re.findall(r"[-+]?\\d+(?:\\.\\d+)?", text)]
     if not numbers:
         if upper_default is not None and "vertical" in text:
             return upper_default, upper_default
@@ -65,9 +65,11 @@ def _extract_range(value: object, upper_default: float | None = None) -> tuple[f
         return numbers[0], numbers[0]
     return min(numbers[0], numbers[1]), max(numbers[0], numbers[1])
 
+
 def _range_columns(series: pd.Series, upper_default: float | None = None) -> pd.DataFrame:
     values = series.map(lambda value: _extract_range(value, upper_default))
     return pd.DataFrame(values.tolist(), index=series.index)
+
 
 def normalize_event_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Normalize historical flood-event headers into stable canonical names."""
@@ -111,7 +113,7 @@ def clean_past_events_data(df: pd.DataFrame, source_file: str | Path) -> pd.Data
     for column in CANONICAL_COLUMNS:
         if column not in result:
             result[column] = pd.NA
-    for column in ["event_id", "location", "duration_text", "temperature_change_text", "rain_3weeks_text", "wind_before", "wind_after", "glacier_impact", "glof_risk", "peak_waterlevel_text", "regularity", "return_interval_text", "snowmelt", "cloudburst", "steep_topography", "landslide", "deforestation", "encroachment", "major_causes", "casualties", "victims", "severity_index_text", "source_file"]:
+    for column in ["event_id", "location", "duration_text", "temperature_change_text", "rain_3weeks_text", "wind_before", "wind_after", "glacier_impact", "glof_risk", "peak_waterlevel_text", "regularity", "return_interval_text", "snowmelt", "cloudburst", "steep_topography", "landslide", "deforestation", "encroachment", "major_causes", "casualties", "victims", "severity_index_text", "source_file", "slope_range_text", "river_distance_range_text", "land_cover_range_text"]:
         result[column] = result[column].astype("string")
     result["event_date"] = pd.to_datetime(result["event_date"], errors="coerce")
     result["source_row_number"] = pd.to_numeric(result["source_row_number"], errors="coerce").astype("Int64")
@@ -120,3 +122,4 @@ def clean_past_events_data(df: pd.DataFrame, source_file: str | Path) -> pd.Data
     for column in _NUMERIC_COLUMNS:
         result[column] = pd.to_numeric(result[column], errors="coerce").astype("Float64")
     return result[CANONICAL_COLUMNS + _NUMERIC_COLUMNS]
+"
