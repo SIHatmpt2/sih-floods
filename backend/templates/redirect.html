@@ -45,98 +45,50 @@
         </div>
 
         <div class="details-grid">
-
-        </div>tatic tz %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#102f50">
-    <title>FloodIntel — Location Intelligence</title>
-    <link rel="icon" type="image/png" href="{% static 'images/LOGO.png' %}">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
-    <link rel="stylesheet" href="{% static 'css/redirect.css' %}">
-</head>
-<body>
-<div class="page">
-    <header class="header">
-        <div class="brand">
-            <h1><span class="flood-text">Flood</span><span class="intel-text">Intel</span></h1>
-            <p>Intelligent Flash Flood Prediction &amp; Early Warning</p>
-        </div>
-    </header>
-
-    <section class="location-bar">
-        <div class="location-info">
-            <div class="location-label">Selected Location</div>
-            <div class="location-name" id="locationName">{{ location.name }}</div>
-        </div>
-        <a href="/" class="back-button">← Back to Locations</a>
-    </section>
-
-    <section class="map-section">
-        <div class="map-container">
-            <div id="map"></div>
-            <div class="map-controls">
-                <button id="zoomIn" type="button" aria-label="Zoom in">+</button>
-                <button id="zoomOut" type="button" aria-label="Zoom out">−</button>
-            </div>
-        </div>
-    </section>
-
-    <section class="details-section">
-        <div class="details-title">Location Intelligence</div>
-        <div class="live-updated">
-            Live data · Updated
-            {{ weather.observed_at|timezone:"Asia/Kolkata"|default_if_none:"—" }}
-        </div>
-
-        <div class="details-categories">
-            <div class="intelligence-category">
-                <div class="category-title">Risk</div>
-                <div class="details-grid">
             <div class="info-card">
                 <div class="info-label">Risk Score</div>
                 <div class="info-value">
                     {{ risk.risk_score|floatformat:1|default_if_none:"—" }}<span class="score-max">/100</span>
                 </div>
+                <div class="info-subtext">Model score (0–100)</div>
+            </div>
             <div class="info-card">
                 <div class="info-label">Risk Level</div>
                 <div class="info-value risk-level-{{ risk.risk_level|slugify }}">
                     {{ risk.risk_level|default_if_none:"—"|title }}
                 </div>
-                </div>
+                <div class="info-subtext">Current model classification</div>
             </div>
-            <div class="intelligence-category">
-                <div class="category-title">Weather</div>
-                <div class="details-grid">
             <div class="info-card">
                 <div class="info-label">Rainfall</div>
                 <div class="info-subtext">Last 24 hours</div>
                 <div class="info-value">
                     {{ weather_outputs.rainfall_mm|default_if_none:"—" }}{% if weather_outputs.rainfall_mm != None %} mm{% endif %}
                 </div>
+                <div class="info-subtext">
+                    Last 7 days · {{ weather_outputs.rainfall_7d_mm|default_if_none:"—" }} mm · Live weather
+                </div>
+            </div>
             <div class="info-card">
                 <div class="info-label">Temperature</div>
                 <div class="info-value">
                     {{ weather_outputs.temperature_c|default_if_none:"—" }}{% if weather_outputs.temperature_c != None %} °C{% endif %}
                 </div>
+                <div class="info-subtext">Latest observation · Live weather</div>
+            </div>
             <div class="info-card">
                 <div class="info-label">Humidity</div>
                 <div class="info-value">
                     {{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}
                 </div>
+                <div class="info-subtext">Latest observation · Live weather</div>
+            </div>
+
             <div class="info-card">
                 <div class="info-label">Slope</div>
                 <div class="info-value">—</div>
                 <div class="info-subtext">Terrain slope</div>
             </div>
-                </div>
-            </div>
-            <div class="intelligence-category">
-                <div class="category-title">Terrain & Hydrology</div>
-                <div class="details-grid">
             <div class="info-card">
                 <div class="info-label">River Distance</div>
                 <div class="info-value">—</div>
@@ -147,11 +99,6 @@
                 <div class="info-value">—</div>
                 <div class="info-subtext">Current area affected</div>
             </div>
-                </div>
-            </div>
-            <div class="intelligence-category">
-                <div class="category-title">Soil</div>
-                <div class="details-grid">
             <div class="info-card">
                 <div class="info-label">Forest Cover</div>
                 <div class="info-value">—</div>
@@ -167,11 +114,6 @@
                 <div class="info-value">—</div>
                 <div class="info-subtext">Last 1 year · tons/year</div>
             </div>
-                </div>
-            </div>
-            <div class="intelligence-category">
-                <div class="category-title">Environment</div>
-                <div class="details-grid">
             <div class="info-card">
                 <div class="info-label">Monsoon Status</div>
                 <div class="info-value">—</div>
@@ -197,9 +139,7 @@
                 <div class="info-value">—</div>
                 <div class="info-subtext">Current affected area</div>
             </div>
-                </div>
-            </div>
-        </div>div>
+        </div>
     </section>
 </div>
 
