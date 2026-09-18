@@ -122,4 +122,3 @@ def clean_past_events_data(df: pd.DataFrame, source_file: str | Path) -> pd.Data
     for column in _NUMERIC_COLUMNS:
         result[column] = pd.to_numeric(result[column], errors="coerce").astype("Float64")
     return result[CANONICAL_COLUMNS + _NUMERIC_COLUMNS]
-"
