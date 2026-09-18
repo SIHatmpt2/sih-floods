@@ -1,9 +1,7 @@
-from datetime import date, datetime
-from zoneinfo import ZoneInfo
+from datetime import date
 
 from django.http import Http404
 from django.shortcuts import render
-from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -16,7 +14,7 @@ from apps.weather.services.historical import HistoricalWeatherError, HistoricalW
 from .serializers import CoordinateQuerySerializer, NotificationRecordSerializer, UserLocationSerializer
 
 service = CoreService()
-IST = ZoneInfo("Asia/Kolkata")
+
 LOCATIONS = {
     "location1": {"name": "Mandi, Himachal Pradesh, India", "lat": 31.5892, "lng": 76.9182},
     "location2": {"name": "Dibrugarh, Assam, India", "lat": 27.4728, "lng": 94.912},
@@ -70,23 +68,11 @@ def _parse_analysis_date(value: str | None) -> date:
         raise Http404("Invalid date. Use YYYY-MM-DD.") from exc
 
 
-def _parse_analysis_datetime(date_value: str | None, time_value: str | None):
-    analysis_date = _parse_analysis_date(date_value)
-    if not time_value:
-        return analysis_date, None
-    try:
-        analysis_time = datetime.strptime(time_value, "%H:%M").time()
-    except ValueError as exc:
-        raise Http404("Invalid time. Use HH:MM.") from exc
-    return analysis_date, datetime.combine(analysis_date, analysis_time, tzinfo=IST)
-
-
-def _render_analysis_error(request, location, location_key, analysis_date, analysis_datetime, message, current=False):
+def _render_analysis_error(request, location, location_key, analysis_date, message, current=False):
     return render(request, "redirect.html", {
         "location": location,
         "location_key": location_key,
         "analysis_date": analysis_date,
-        "analysis_datetime": analysis_datetime,
         "locations": LOCATIONS,
         "weather": {},
         "weather_outputs": {},
@@ -100,30 +86,29 @@ def _render_analysis_error(request, location, location_key, analysis_date, analy
 def redirect_result(request):
     location_key = request.GET.get("location", "location1")
     location = LOCATIONS.get(location_key, LOCATIONS["location1"])
-    analysis_date, analysis_datetime = _parse_analysis_datetime(
-        request.GET.get("date"), request.GET.get("time")
-    )
+    analysis_date = _parse_analysis_date(request.GET.get("date"))
     lat, lon = location["lat"], location["lng"]
-    now_ist = timezone.localtime(timezone.now(), IST)
+    today = date.today()
 
-    if analysis_datetime is not None and analysis_datetime > now_ist:
-        raise Http404("Analysis only accepts a date/time at or before the current time.")
+    if analysis_date > today:
+        raise Http404("Analysis only accepts today or earlier dates.")
 
-    # A timestamped request is always historical, even when it is today.
-    # Omitting time preserves the existing live-today behavior.
-    if analysis_datetime is None and analysis_date == now_ist.date():
+    # Today uses live AccuWeather conditions. A separate historical request
+    # supplies the rolling seven-day rainfall total because the live provider
+    # does not reliably expose that aggregate.
+    if analysis_date == today:
         try:
             weather = WeatherService().current(lat, lon)
         except Exception as exc:
             return _render_analysis_error(
-                request, location, location_key, analysis_date, analysis_datetime,
+                request, location, location_key, analysis_date,
                 f"Live weather service failed: {exc}", current=True,
             )
 
         source = weather.get("data_quality", {}).get("source") or weather.get("station", {}).get("provider")
         if not weather.get("data_quality", {}).get("available") or source not in {"accuweather", "imd"}:
             return _render_analysis_error(
-                request, location, location_key, analysis_date, analysis_datetime,
+                request, location, location_key, analysis_date,
                 "No live weather provider returned usable conditions. Configure ACCUWEATHER_API_KEY and try again.",
                 current=True,
             )
@@ -137,6 +122,8 @@ def redirect_result(request):
             historical_today = HistoricalWeatherService().for_date(lat, lon, analysis_date)
             rainfall_7d_mm = historical_today.get("rainfall_7d_mm")
         except HistoricalWeatherError:
+            # Keep the live analysis usable if the separate aggregate request
+            # is unavailable; the field remains explicitly unavailable.
             pass
 
         weather_outputs = {
@@ -153,7 +140,6 @@ def redirect_result(request):
             "location": location,
             "location_key": location_key,
             "analysis_date": analysis_date,
-            "analysis_datetime": analysis_datetime,
             "locations": LOCATIONS,
             "weather": weather,
             "weather_outputs": weather_outputs,
@@ -164,13 +150,11 @@ def redirect_result(request):
         })
 
     try:
-        weather = HistoricalWeatherService().for_date(
-            lat, lon, analysis_date, analysis_datetime=analysis_datetime
-        )
+        weather = HistoricalWeatherService().for_date(lat, lon, analysis_date)
         risk = RiskService().historical(lat, lon, analysis_date, weather)
     except HistoricalWeatherError as exc:
         return _render_analysis_error(
-            request, location, location_key, analysis_date, analysis_datetime, str(exc), current=False,
+            request, location, location_key, analysis_date, str(exc), current=False,
         )
 
     events = list(recent_flood_events(
@@ -195,7 +179,6 @@ def redirect_result(request):
         "location": location,
         "location_key": location_key,
         "analysis_date": analysis_date,
-        "analysis_datetime": analysis_datetime,
         "locations": LOCATIONS,
         "weather": weather,
         "weather_outputs": weather_outputs,
