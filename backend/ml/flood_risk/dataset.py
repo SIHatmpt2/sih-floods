@@ -38,10 +38,9 @@ TERRAIN_FEATURES = [
 ]
 CARBON_FEATURES = [
     "co2_ppm", "co2_monthly_change_ppm", "co2_yearly_change_ppm", "co2_regional_anomaly_ppm",
-    "co2_emissions_tons_year",
 ]
 ENVIRONMENT_FEATURES = [
-    "forest_cover_pct", "tree_density_per_km2", "deforestation_signal",
+    "forest_cover_pct", "tree_density_per_km2", "deforestation_signal", "co2_emissions_tons_year",
 ]
 INTERACTION_FEATURES = [
     "discharge_rise_3h", "discharge_rise_6h", "discharge_rise_12h",
