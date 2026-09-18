@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_ROOT = PROJECT_ROOT / "apps" / "risk" / "data"
 DEFAULT_RAW_DIR = DEFAULT_DATA_ROOT / "raw" / "past_events"
 DEFAULT_OUTPUT_DIR = DEFAULT_DATA_ROOT / "processed" / "past_events" / "parquet"
+DEFAULT_SOURCE_NAME = "Raw_events - Sheet2.csv"
 
 
 def discover_csv_files(raw_dir: Path) -> list[Path]:
@@ -68,10 +69,11 @@ def _write_combined(parquet_files: list[Path], output_path: Path) -> Path:
 
 
 def run_pipeline(raw_dir: Path | None = None, output_dir: Path | None = None, combine: bool = True) -> dict[str, object]:
-    """Process all historical flood-event CSVs and return generated output paths."""
+    """Process the enriched V2 Sheet2 event source into Parquet."""
     raw_dir = Path(raw_dir) if raw_dir is not None else DEFAULT_RAW_DIR
     output_dir = Path(output_dir) if output_dir is not None else DEFAULT_OUTPUT_DIR
-    files = discover_csv_files(raw_dir)
+    preferred = raw_dir / DEFAULT_SOURCE_NAME
+    files = [preferred] if preferred.exists() else discover_csv_files(raw_dir)
     if not files:
         raise FileNotFoundError(f"No CSV files found under {raw_dir}")
     per_file = [process_file(path, output_dir) for path in files]
