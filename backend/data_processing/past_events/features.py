@@ -9,7 +9,7 @@ NON_MODEL_COLUMNS = {
     "rain_3weeks_text", "wind_before", "wind_after", "glacier_impact", "glof_risk",
     "peak_waterlevel_text", "regularity", "return_interval_text", "snowmelt", "cloudburst",
     "steep_topography", "landslide", "deforestation", "encroachment", "major_causes",
-    "casualties", "victims", "severity_index_text", "source_file", "source_row_number",
+    "casualties", "victims", "severity_index_text", "source_file", "source_row_number", "slope_range_text", "river_distance_range_text", "land_cover_range_text",
 }
 
 
