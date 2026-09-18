@@ -20,6 +20,7 @@ _COLUMN_ALIASES = {
     "slope_in_degrees": "slope_range_text",
     "river_distance_metres": "river_distance_range_text",
     "land_cover_km2_only_flash_flood_affected_area_covered": "land_cover_range_text",
+    "land_cover_km_only_flash_flood_affected_area_covered": "land_cover_range_text",
 }
 
 CANONICAL_COLUMNS = [
