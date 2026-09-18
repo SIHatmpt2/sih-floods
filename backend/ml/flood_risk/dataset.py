@@ -38,6 +38,15 @@ TERRAIN_FEATURES = [
 ]
 CARBON_FEATURES = [
     "co2_ppm", "co2_monthly_change_ppm", "co2_yearly_change_ppm", "co2_regional_anomaly_ppm",
+    "co2_emissions_tons_year",
+]
+ENVIRONMENT_FEATURES = [
+    "forest_cover_pct", "tree_density_per_km2", "deforestation_signal",
+]
+INTERACTION_FEATURES = [
+    "discharge_rise_3h", "discharge_rise_6h", "discharge_rise_12h",
+    "slope_discharge_rise_3h", "slope_discharge_rise_6h", "slope_discharge_rise_12h",
+    "forest_loss_signal", "forest_carbon_pressure",
 ]
 GLACIER_FEATURES = [
     "glacier_area_km2", "glacier_area_change_1y_km2", "glacier_area_change_1y_pct",
@@ -201,6 +210,8 @@ def _add_historical_terrain_features(rows: pd.DataFrame, events: pd.DataFrame) -
         "slope_min_deg": "historical_slope_min_deg", "slope_max_deg": "historical_slope_max_deg", "slope_mid_deg": "historical_slope_mid_deg",
         "river_distance_min_m": "historical_river_distance_min_m", "river_distance_max_m": "historical_river_distance_max_m", "river_distance_mid_m": "historical_river_distance_mid_m",
         "land_cover_min_km2": "historical_land_cover_min_km2", "land_cover_max_km2": "historical_land_cover_max_km2", "land_cover_mid_km2": "historical_land_cover_mid_km2",
+        "forest_cover_pct": "forest_cover_pct", "tree_density_per_km2": "tree_density_per_km2",
+        "co2_emissions_tons_year": "co2_emissions_tons_year",
     }
     for column in event_columns.values():
         out[column] = np.nan
@@ -224,6 +235,29 @@ def _add_historical_terrain_features(rows: pd.DataFrame, events: pd.DataFrame) -
             values = pd.to_numeric(prior.get(source, pd.Series(np.nan, index=prior.index)), errors="coerce").to_numpy(dtype=float)
             out.loc[out_idx, target] = values
     return out
+
+def _add_risk_interaction_features(rows: pd.DataFrame) -> pd.DataFrame:
+    """Create domain-informed interactions while using only present/past river values."""
+    out = rows.copy()
+    discharge = pd.to_numeric(out.get("discharge_cumecs"), errors="coerce")
+    slope = pd.to_numeric(out.get("historical_slope_mid_deg"), errors="coerce")
+    out["discharge_rise_3h"] = (discharge - pd.to_numeric(out.get("discharge_lag_3h"), errors="coerce")).clip(lower=0)
+    out["discharge_rise_6h"] = (discharge - pd.to_numeric(out.get("discharge_lag_6h"), errors="coerce")).clip(lower=0)
+    out["discharge_rise_12h"] = (discharge - pd.to_numeric(out.get("discharge_lag_12h"), errors="coerce")).clip(lower=0)
+    for hours in (3, 6, 12):
+        out[f"slope_discharge_rise_{hours}h"] = slope * out[f"discharge_rise_{hours}h"]
+    forest = pd.to_numeric(out.get("forest_cover_pct"), errors="coerce").clip(lower=0, upper=100)
+    trees = pd.to_numeric(out.get("tree_density_per_km2"), errors="coerce")
+    emissions = pd.to_numeric(out.get("co2_emissions_tons_year"), errors="coerce")
+    # Higher signal means less vegetation protection. Missing observations stay missing.
+    out["forest_loss_signal"] = (100.0 - forest) / 100.0
+    out["deforestation_signal"] = out.get("deforestation_signal", pd.Series(np.nan, index=out.index))
+    out["forest_carbon_pressure"] = out["forest_loss_signal"] * np.log1p(emissions.clip(lower=0))
+    # Tree density is retained as a direct feature; this interaction lets the model
+    # distinguish a high forest percentage with unusually sparse trees.
+    out["forest_carbon_pressure"] = out["forest_carbon_pressure"].where(emissions.notna() & forest.notna())
+    return out
+
 
 def _label_events(rows: pd.DataFrame, events: pd.DataFrame, horizon_hours: int) -> pd.Series:
     _require(events, {"event_date", "location"}, "flood events")
@@ -423,6 +457,24 @@ def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd
     LOGGER.info("Adding historical flood features")
     base = _add_historical_features(base, events)
     base = _add_historical_terrain_features(base, events)
+    base["deforestation_signal"] = np.nan
+    if "deforestation" in events.columns:
+        # A prior event marked with deforestation/tree clearing provides a regional land-pressure signal.
+        mapping = _event_map(base, events)
+        for station_id, idx in base.groupby("station_id", sort=False).groups.items():
+            matched = mapping.get(str(station_id))
+            if matched is None or "deforestation" not in matched.columns:
+                continue
+            prior = matched.sort_values("event_date")
+            ts = base.loc[idx, "observed_at"].to_numpy(dtype="datetime64[ns]")
+            dates = pd.to_datetime(prior["event_date"], errors="coerce").to_numpy(dtype="datetime64[ns]")
+            pos = np.searchsorted(dates, ts, side="left") - 1
+            valid = pos >= 0
+            if valid.any():
+                signal = prior["deforestation"].fillna("").astype(str).str.lower().str.contains("yes|high|critical|forest|tree|clearing|cleared|deforest", regex=True).astype(float).to_numpy()
+                out_idx = np.asarray(idx)[valid]
+                base.loc[out_idx, "deforestation_signal"] = signal[pos[valid]]
+    base = _add_risk_interaction_features(base)
     if carbon is not None and not carbon.empty:
         LOGGER.info("Adding CAMS carbon features")
         base = _add_carbon_features(base, carbon, carbon_regional, carbon_max_distance_km)
@@ -441,7 +493,7 @@ def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd
     base["month"] = base.observed_at.dt.month.astype("int8")
     base["day_of_year"] = base.observed_at.dt.dayofyear.astype("int16")
     base["is_monsoon"] = base.month.isin([6, 7, 8, 9]).astype("int8")
-    ordered = ["station_id", "observed_at", "station", "state", "district", "river", "basin"] + RAIN_FEATURES + RIVER_FEATURES + HISTORICAL_FEATURES + TERRAIN_FEATURES + CARBON_FEATURES + GLACIER_FEATURES + ["month", "day_of_year", "is_monsoon", TARGET_COLUMN]
+    ordered = ["station_id", "observed_at", "station", "state", "district", "river", "basin"] + RAIN_FEATURES + RIVER_FEATURES + HISTORICAL_FEATURES + TERRAIN_FEATURES + CARBON_FEATURES + ENVIRONMENT_FEATURES + INTERACTION_FEATURES + GLACIER_FEATURES + ["month", "day_of_year", "is_monsoon", TARGET_COLUMN]
     return base[[c for c in ordered if c in base.columns]].sort_values(["station_id", "observed_at"], kind="stable").reset_index(drop=True)
 
 
