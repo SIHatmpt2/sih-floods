@@ -2,7 +2,7 @@ name: Build CWC Parquet datasets
 
 on:
   push:
-    branches: [main]
+    branches: [main, v2_demo]
   workflow_dispatch:
 
 jobs:
@@ -30,6 +30,22 @@ jobs:
             sih-floods-backend-ci \
             python -m data_processing.rivers.pipeline
 
+      - name: Build past-events Parquet
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/backend:/app" \
+            -w /app \
+            sih-floods-backend-ci \
+            python -m data_processing.past_events.pipeline
+
+      - name: Build V2 training Parquet
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE/backend:/app" \
+            -w /app \
+            sih-floods-backend-ci \
+            python -m ml.flood_risk.dataset --output apps/risk/data/processed/v2_train.parquet
+
       - name: Build rainfall Parquet
         run: |
           docker run --rm \
@@ -41,8 +57,10 @@ jobs:
       - name: Upload CWC Parquet artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cwc-parquet
+          name: v2-parquet
           path: |
             backend/apps/risk/data/processed/river_data/parquet/*.parquet
             backend/apps/risk/data/processed/rainfall/parquet/*.parquet
+            backend/apps/risk/data/processed/past_events/parquet/*.parquet
+            backend/apps/risk/data/processed/v2_train.parquet
           if-no-files-found: error
