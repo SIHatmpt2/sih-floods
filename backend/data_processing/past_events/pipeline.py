@@ -15,17 +15,19 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DATA_ROOT = PROJECT_ROOT / "apps" / "risk" / "data"
 DEFAULT_RAW_DIR = DEFAULT_DATA_ROOT / "raw" / "past_events"
 DEFAULT_OUTPUT_DIR = DEFAULT_DATA_ROOT / "processed" / "past_events" / "parquet"
-DEFAULT_SOURCE_NAME = "Raw_events - Sheet2.csv"
 
 
 def discover_csv_files(raw_dir: Path) -> list[Path]:
-    """Recursively discover CSV inputs in deterministic order."""
+    """Recursively discover all CSV inputs in deterministic order."""
     raw_dir = Path(raw_dir)
     if not raw_dir.exists():
         raise FileNotFoundError(f"Raw past-events directory does not exist: {raw_dir}")
     if not raw_dir.is_dir():
         raise NotADirectoryError(raw_dir)
-    return sorted((p for p in raw_dir.rglob("*.csv") if p.is_file()), key=lambda p: p.as_posix().lower())
+    return sorted(
+        (p for p in raw_dir.rglob("*.csv") if p.is_file()),
+        key=lambda p: p.as_posix().lower(),
+    )
 
 
 def _output_name(input_path: Path) -> str:
@@ -47,33 +49,34 @@ def process_file(input_path: Path, output_dir: Path) -> Path:
 
 
 def _write_combined(parquet_files: list[Path], output_path: Path) -> Path:
-    """Combine Parquet fragments while retaining one source table in memory at a time."""
+    """Combine fragments after enforcing a common schema."""
+    import pyarrow as pa
     import pyarrow.parquet as pq
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    writer = None
-    try:
-        for path in parquet_files:
-            table = pq.read_table(path)
-            if writer is None:
-                writer = pq.ParquetWriter(output_path, table.schema, compression="zstd")
-            elif table.schema != writer.schema:
-                raise ValueError(f"Incompatible Parquet schema in {path}")
-            writer.write_table(table)
-    finally:
-        if writer is not None:
-            writer.close()
-    if writer is None:
+    if not parquet_files:
         raise ValueError("No Parquet files were available for combined output")
+
+    # Re-read through pandas so newly introduced optional columns are aligned
+    # consistently across older and newer event sheets.
+    frames = [pd.read_parquet(path) for path in parquet_files]
+    columns = list(dict.fromkeys(column for frame in frames for column in frame.columns))
+    aligned = [frame.reindex(columns=columns) for frame in frames]
+    combined = pd.concat(aligned, ignore_index=True)
+    table = pa.Table.from_pandas(combined, preserve_index=False)
+    pq.write_table(table, output_path, compression="zstd")
     return output_path
 
 
-def run_pipeline(raw_dir: Path | None = None, output_dir: Path | None = None, combine: bool = True) -> dict[str, object]:
-    """Process the enriched V2 Sheet2 event source into Parquet."""
+def run_pipeline(
+    raw_dir: Path | None = None,
+    output_dir: Path | None = None,
+    combine: bool = True,
+) -> dict[str, object]:
+    """Process every historical event sheet, including newly added Sheet3."""
     raw_dir = Path(raw_dir) if raw_dir is not None else DEFAULT_RAW_DIR
     output_dir = Path(output_dir) if output_dir is not None else DEFAULT_OUTPUT_DIR
-    preferred = raw_dir / DEFAULT_SOURCE_NAME
-    files = [preferred] if preferred.exists() else discover_csv_files(raw_dir)
+    files = discover_csv_files(raw_dir)
     if not files:
         raise FileNotFoundError(f"No CSV files found under {raw_dir}")
     per_file = [process_file(path, output_dir) for path in files]
