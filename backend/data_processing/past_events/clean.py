@@ -25,6 +25,7 @@ _COLUMN_ALIASES = {
     "co2_emissions_tons_year": "co2_emissions_tons_year",
     "forest_cover": "forest_cover_pct_text",
     "estimated_trees_km2": "tree_density_text",
+    "estimated_trees_km": "tree_density_text",
     "estimated_trees_km_2": "tree_density_text",
     "estimated_trees_km2": "tree_density_text",
     "estimated_trees": "tree_density_text",
