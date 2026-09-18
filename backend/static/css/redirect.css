@@ -249,3 +249,42 @@
 .intelligence-category:nth-child(5) .info-card:nth-child(5) {
     border-left-color: #735f43;
 }
+
+/* =========================
+   TILE BASE STYLE
+   Keep original tile appearance; no visual effects.
+========================= */
+.intelligence-category .info-card {
+    min-height: 112px;
+    padding: 20px 22px;
+    border-radius: 17px;
+    background: #fff;
+    box-shadow: none;
+    transition: none;
+    transform: none;
+}
+
+.intelligence-category .info-card::after {
+    display: none;
+}
+
+.intelligence-category .info-card:hover {
+    transform: none;
+    border-color: #c7d4e2;
+    box-shadow: none;
+}
+
+.intelligence-category .info-label {
+    font-size: 14px;
+    font-weight: 400;
+    color: #61758d;
+}
+
+.intelligence-category .info-value {
+    font-size: 27px;
+    letter-spacing: normal;
+}
+
+.intelligence-category .info-subtext {
+    color: #7a899a;
+}
