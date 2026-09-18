@@ -54,7 +54,7 @@ def _extract_range(value: object, upper_default: float | None = None) -> tuple[f
     if pd.isna(value):
         return np.nan, np.nan
     text = str(value).strip().lower().replace(",", "")
-    numbers = [float(x) for x in re.findall(r"[-+]?\d+(?:\.\d+)?", text)]
+    numbers = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", text)]
     if not numbers:
         if upper_default is not None and "vertical" in text:
             return upper_default, upper_default
