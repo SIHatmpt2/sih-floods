@@ -55,3 +55,126 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================
+   VISUAL POLISH
+========================= */
+.details-section {
+    margin-top: 24px;
+}
+
+.details-title {
+    font-size: 20px;
+    letter-spacing: -.2px;
+}
+
+.live-updated {
+    color: #718198;
+}
+
+.intelligence-category {
+    position: relative;
+}
+
+.category-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 13px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #183d63;
+    letter-spacing: 1px;
+}
+
+.category-title::before {
+    content: "";
+    width: 4px;
+    height: 18px;
+    border-radius: 3px;
+    background: #0079FE;
+}
+
+.intelligence-category:nth-child(3) .category-title::before {
+    background: #4d8061;
+}
+
+.intelligence-category:nth-child(4) .category-title::before {
+    background: #8a6845;
+}
+
+.intelligence-category:nth-child(5) .category-title::before {
+    background: #2f7654;
+}
+
+.intelligence-category .details-grid {
+    gap: 16px;
+}
+
+.intelligence-category .info-card {
+    position: relative;
+    min-height: 116px;
+    padding: 19px 21px;
+    border-color: #d2dce7;
+    border-radius: 14px;
+    box-shadow: 0 2px 7px rgba(16,45,81,.055);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    overflow: hidden;
+}
+
+.intelligence-category .info-card::after {
+    content: "";
+    position: absolute;
+    right: -22px;
+    bottom: -22px;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(0,121,254,.035);
+    pointer-events: none;
+}
+
+.intelligence-category .info-card:hover {
+    transform: translateY(-3px);
+    border-color: #b9cadc;
+    box-shadow: 0 7px 18px rgba(16,45,81,.10);
+}
+
+.intelligence-category .info-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #657991;
+}
+
+.intelligence-category .info-value {
+    font-size: 29px;
+    letter-spacing: -.4px;
+}
+
+.intelligence-category .info-subtext {
+    color: #8492a3;
+}
+
+.location-bar,
+.map-container {
+    box-shadow: 0 2px 8px rgba(16,45,81,.045);
+}
+
+.back-button {
+    transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+
+.back-button:hover {
+    border-color: #9fb5cb;
+    transform: translateY(-1px);
+}
+
+.map-container {
+    box-shadow: 0 3px 12px rgba(16,45,81,.07);
+}
+
+@media (max-width: 700px) {
+    .intelligence-category .info-card {
+        min-height: 105px;
+    }
+}
