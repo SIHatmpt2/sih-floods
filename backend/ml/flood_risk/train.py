@@ -22,7 +22,7 @@ from xgboost import XGBClassifier
 from ml.flood_risk.dataset import TARGET_COLUMN
 
 LOGGER = logging.getLogger(__name__)
-DEFAULT_DATASET = Path("apps/risk/data/processed/training_v1.parquet")
+DEFAULT_DATASET = Path("apps/risk/data/processed/v2_train.parquet")
 DEFAULT_MODEL = Path("models/flood_risk_v1.json")
 DEFAULT_METADATA = Path("models/flood_risk_v1.metadata.json")
 DEFAULT_WEIGHT_SWEEP = (0.25, 0.5, 1.0, 2.0, 4.0)
@@ -44,6 +44,9 @@ FEATURE_COLUMNS = [
     "discharge_rolling_mean_24h", "discharge_rolling_max_24h", "discharge_rolling_std_24h",
     "flood_count_1y", "flood_count_3y", "flood_count_5y", "days_since_last_flood",
     "historical_max_severity", "historical_mean_severity", "historical_glof_count",
+    "historical_slope_min_deg", "historical_slope_max_deg", "historical_slope_mid_deg",
+    "historical_river_distance_min_m", "historical_river_distance_max_m", "historical_river_distance_mid_m",
+    "historical_land_cover_min_km2", "historical_land_cover_max_km2", "historical_land_cover_mid_km2",
     "glacier_area_km2", "glacier_area_change_1y_km2", "glacier_area_change_1y_pct",
     "glacier_cumulative_area_change_km2", "glacier_cumulative_area_change_pct", "glacier_elevation_m",
     "glacier_melting_rate_min_km_per_year", "glacier_melting_rate_max_km_per_year",
@@ -498,7 +501,7 @@ def train(
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     model.save_model(model_path)
     metadata = {
-        "model_version": "v1.5", "algorithm": "XGBClassifier", "target": TARGET_COLUMN, "features": feature_columns,
+        "model_version": "v2", "algorithm": "XGBClassifier", "target": TARGET_COLUMN, "features": feature_columns,
         "core_rainfall_required": CORE_RAINFALL, "dataset": str(dataset_path), "rows_total": int(len(df)),
         "rows_train": int(len(train_df)), "rows_validation": int(len(validation_df)), "rows_test": int(len(test_df)),
         "train_date_min": str(train_df.observed_at.min()), "train_date_max": str(train_df.observed_at.max()),
