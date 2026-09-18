@@ -1,4 +1,4 @@
-""""Cleaning and canonicalization for historical flood-event data."""
+"""Cleaning and canonicalization for historical flood-event data."""
 
 from __future__ import annotations
 
@@ -21,6 +21,8 @@ _COLUMN_ALIASES = {
     "river_distance_metres": "river_distance_range_text",
     "land_cover_km2_only_flash_flood_affected_area_covered": "land_cover_range_text",
     "land_cover_km_only_flash_flood_affected_area_covered": "land_cover_range_text",
+    "co2_emissions_in_tons_year": "co2_emissions_tons_year",
+    "co2_emissions_tons_year": "co2_emissions_tons_year",
 }
 
 CANONICAL_COLUMNS = [
@@ -28,9 +30,14 @@ CANONICAL_COLUMNS = [
     "wind_before", "wind_after", "glacier_impact", "glof_risk", "peak_waterlevel_text", "regularity",
     "return_interval_text", "snowmelt", "cloudburst", "steep_topography", "landslide", "deforestation",
     "encroachment", "major_causes", "casualties", "victims", "severity_index_text", "slope_range_text",
-    "river_distance_range_text", "land_cover_range_text", "source_file", "source_row_number",
+    "river_distance_range_text", "land_cover_range_text", "co2_emissions_tons_year", "source_file",
+    "source_row_number",
 ]
-_NUMERIC_COLUMNS = ["peak_waterlevel_m", "severity_index", "slope_min_deg", "slope_max_deg", "slope_mid_deg", "river_distance_min_m", "river_distance_max_m", "river_distance_mid_m", "land_cover_min_km2", "land_cover_max_km2", "land_cover_mid_km2"]
+_NUMERIC_COLUMNS = [
+    "peak_waterlevel_m", "severity_index", "slope_min_deg", "slope_max_deg", "slope_mid_deg",
+    "river_distance_min_m", "river_distance_max_m", "river_distance_mid_m",
+    "land_cover_min_km2", "land_cover_max_km2", "land_cover_mid_km2", "co2_emissions_tons_year",
+]
 
 
 def _normalize_name(name: object) -> str:
@@ -51,7 +58,6 @@ def _extract_number(value: object) -> float:
 
 
 def _extract_range(value: object, upper_default: float | None = None) -> tuple[float, float]:
-    """Parse numeric ranges such as 45° to 75°, 0-50m, or Approx 500."""
     if pd.isna(value):
         return np.nan, np.nan
     text = str(value).strip().lower().replace(",", "")
@@ -73,7 +79,6 @@ def _range_columns(series: pd.Series, upper_default: float | None = None) -> pd.
 
 
 def normalize_event_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Normalize historical flood-event headers into stable canonical names."""
     if not isinstance(df, pd.DataFrame):
         raise TypeError("df must be a pandas DataFrame")
     result = df.copy()
@@ -85,7 +90,6 @@ def normalize_event_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def clean_past_events_data(df: pd.DataFrame, source_file: str | Path) -> pd.DataFrame:
-    """Clean one historical flood-event export while retaining source attributes."""
     result = normalize_event_columns(df)
     required = {"event_id", "location", "event_date"}
     missing = required - set(result.columns)
@@ -106,6 +110,9 @@ def clean_past_events_data(df: pd.DataFrame, source_file: str | Path) -> pd.Data
     result["river_distance_mid_m"] = river_distance.mean(axis=1)
     result["land_cover_min_km2"], result["land_cover_max_km2"] = land_cover[0], land_cover[1]
     result["land_cover_mid_km2"] = land_cover.mean(axis=1)
+    result["co2_emissions_tons_year"] = result.get(
+        "co2_emissions_tons_year", pd.Series(index=result.index, dtype="string")
+    ).map(_extract_number)
     result["source_file"] = Path(source_file).as_posix()
     result["source_row_number"] = np.arange(1, len(result) + 1, dtype=np.int64)
     result = result.dropna(subset=["event_id", "event_date"]).copy()
@@ -114,12 +121,11 @@ def clean_past_events_data(df: pd.DataFrame, source_file: str | Path) -> pd.Data
     for column in CANONICAL_COLUMNS:
         if column not in result:
             result[column] = pd.NA
-    for column in ["event_id", "location", "duration_text", "temperature_change_text", "rain_3weeks_text", "wind_before", "wind_after", "glacier_impact", "glof_risk", "peak_waterlevel_text", "regularity", "return_interval_text", "snowmelt", "cloudburst", "steep_topography", "landslide", "deforestation", "encroachment", "major_causes", "casualties", "victims", "severity_index_text", "source_file", "slope_range_text", "river_distance_range_text", "land_cover_range_text"]:
+    text_columns = [c for c in CANONICAL_COLUMNS if c not in {"event_date", "source_row_number", "co2_emissions_tons_year"}]
+    for column in text_columns:
         result[column] = result[column].astype("string")
     result["event_date"] = pd.to_datetime(result["event_date"], errors="coerce")
     result["source_row_number"] = pd.to_numeric(result["source_row_number"], errors="coerce").astype("Int64")
-    result["peak_waterlevel_m"] = pd.to_numeric(result["peak_waterlevel_m"], errors="coerce").astype("Float64")
-    result["severity_index"] = pd.to_numeric(result["severity_index"], errors="coerce").astype("Float64")
     for column in _NUMERIC_COLUMNS:
         result[column] = pd.to_numeric(result[column], errors="coerce").astype("Float64")
     return result[CANONICAL_COLUMNS + _NUMERIC_COLUMNS]
