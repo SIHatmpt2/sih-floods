@@ -66,7 +66,7 @@ def _add_regional_anomaly(hilly: pd.DataFrame, regional: pd.DataFrame) -> pd.Dat
         regional[["date", "regional_mean_co2_ppm"]].sort_values("date"),
         on="date",
         direction="nearest",
-        tolerance=pd.Timedelta(days=31),
+        tolerance=pd.Timedelta(31, unit="D"),
     )
     result["co2_regional_anomaly_ppm"] = result["co2_ppm"] - result["regional_mean_co2_ppm"]
     return result
