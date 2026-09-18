@@ -36,6 +36,9 @@ TERRAIN_FEATURES = [
     "historical_river_distance_min_m", "historical_river_distance_max_m", "historical_river_distance_mid_m",
     "historical_land_cover_min_km2", "historical_land_cover_max_km2", "historical_land_cover_mid_km2",
 ]
+CARBON_FEATURES = [
+    "co2_ppm", "co2_monthly_change_ppm", "co2_yearly_change_ppm", "co2_regional_anomaly_ppm",
+]
 GLACIER_FEATURES = [
     "glacier_area_km2", "glacier_area_change_1y_km2", "glacier_area_change_1y_pct",
     "glacier_cumulative_area_change_km2", "glacier_cumulative_area_change_pct",
@@ -273,6 +276,85 @@ def _add_glacier_state(rows: pd.DataFrame, glaciers: pd.DataFrame) -> pd.DataFra
     return out.drop(columns=["_year", "year"], errors="ignore")
 
 
+def _nearest_carbon_locations(river: pd.DataFrame, carbon: pd.DataFrame, max_km: float = 150.0) -> pd.DataFrame:
+    """Map each river station to its nearest CAMS hilly-location grid point."""
+    cols = ["station_id", "latitude", "longitude"]
+    carbon_cols = ["location", "latitude", "longitude"]
+    if not set(cols).issubset(river.columns) or not set(carbon_cols).issubset(carbon.columns):
+        return pd.DataFrame(columns=["river_station_id", "carbon_location", "distance_km"])
+    r = river[cols].dropna().drop_duplicates("station_id")
+    p = carbon[carbon_cols].dropna().drop_duplicates("location")
+    if r.empty or p.empty:
+        return pd.DataFrame(columns=["river_station_id", "carbon_location", "distance_km"])
+    rlat, rlon = np.radians(r["latitude"].to_numpy()), np.radians(r["longitude"].to_numpy())
+    plat, plon = np.radians(p["latitude"].to_numpy()), np.radians(p["longitude"].to_numpy())
+    dlat, dlon = rlat[:, None] - plat[None, :], rlon[:, None] - plon[None, :]
+    a = np.sin(dlat / 2) ** 2 + np.cos(rlat[:, None]) * np.cos(plat[None, :]) * np.sin(dlon / 2) ** 2
+    distances = 6371.0088 * 2 * np.arcsin(np.sqrt(np.clip(a, 0, 1)))
+    nearest = distances.argmin(axis=1)
+    distance = distances[np.arange(len(r)), nearest]
+    return pd.DataFrame({
+        "river_station_id": r["station_id"].astype("string").to_numpy(),
+        "carbon_location": p.iloc[nearest]["location"].astype("string").to_numpy(),
+        "distance_km": distance,
+    }).loc[lambda x: x.distance_km <= max_km].reset_index(drop=True)
+
+
+def _add_carbon_features(base: pd.DataFrame, carbon: pd.DataFrame, regional: pd.DataFrame | None = None, max_distance_km: float = 150.0) -> pd.DataFrame:
+    """Backward-asof join monthly CAMS carbon values to river observations."""
+    out = base.copy()
+    for column in CARBON_FEATURES:
+        out[column] = np.nan
+    if carbon.empty or "location" not in carbon.columns:
+        return out
+
+    mapping = _nearest_carbon_locations(out, carbon, max_distance_km)
+    if mapping.empty:
+        LOGGER.warning("No CAMS hilly locations within %.1f km", max_distance_km)
+        return out
+
+    carbon_by_location = {str(k): g.sort_values("date") for k, g in carbon.groupby("location", sort=False)}
+    base_groups = out.groupby("station_id", sort=False).groups
+    for row in mapping.itertuples(index=False):
+        indices = base_groups.get(row.river_station_id)
+        source = carbon_by_location.get(str(row.carbon_location))
+        if indices is None or source is None:
+            continue
+        left = out.loc[indices, ["observed_at"]].sort_values("observed_at").copy()
+        right = source[["date"] + CARBON_FEATURES].sort_values("date").copy()
+        joined = pd.merge_asof(
+            left,
+            right,
+            left_on="observed_at",
+            right_on="date",
+            direction="backward",
+            tolerance=pd.Timedelta(days=45),
+        )
+        for column in CARBON_FEATURES:
+            out.loc[left.index, column] = joined[column].to_numpy()
+
+    # Regional monthly mean is a fallback for stations with no local CAMS match.
+    if regional is not None and not regional.empty:
+        regional = regional[["date", "regional_mean_co2_ppm"]].dropna().sort_values("date")
+        left = out[["observed_at"]].sort_values("observed_at").copy()
+        joined = pd.merge_asof(
+            left,
+            regional,
+            left_on="observed_at",
+            right_on="date",
+            direction="backward",
+            tolerance=pd.Timedelta(days=45),
+        )
+        fallback = joined["regional_mean_co2_ppm"].to_numpy()
+        order = left.index.to_numpy()
+        missing = out.loc[order, "co2_ppm"].isna().to_numpy()
+        out.loc[order[missing], "co2_ppm"] = fallback[missing]
+        out.loc[order[missing], "co2_regional_anomaly_ppm"] = 0.0
+        out.loc[order[missing], "co2_monthly_change_ppm"] = 0.0
+        out.loc[order[missing], "co2_yearly_change_ppm"] = 0.0
+    return out
+
+
 def _add_rainfall_features(base: pd.DataFrame, rain: pd.DataFrame, mapping: pd.DataFrame) -> pd.DataFrame:
     """Join mapped rainfall features without a large all-stations merge.
 
@@ -322,7 +404,7 @@ def _add_rainfall_features(base: pd.DataFrame, rain: pd.DataFrame, mapping: pd.D
     return out
 
 
-def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd.DataFrame, glaciers: pd.DataFrame | None = None, rainfall_max_distance_km: float = 50.0, horizon_hours: int = 72) -> pd.DataFrame:
+def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd.DataFrame, glaciers: pd.DataFrame | None = None, carbon: pd.DataFrame | None = None, carbon_regional: pd.DataFrame | None = None, rainfall_max_distance_km: float = 50.0, carbon_max_distance_km: float = 150.0, horizon_hours: int = 72) -> pd.DataFrame:
     LOGGER.info("Preparing river observations")
     base = _prepare_river(river)
     LOGGER.info("River observations prepared: %d rows, %d stations", len(base), base.station_id.nunique())
@@ -341,6 +423,13 @@ def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd
     LOGGER.info("Adding historical flood features")
     base = _add_historical_features(base, events)
     base = _add_historical_terrain_features(base, events)
+    if carbon is not None and not carbon.empty:
+        LOGGER.info("Adding CAMS carbon features")
+        base = _add_carbon_features(base, carbon, carbon_regional, carbon_max_distance_km)
+    else:
+        LOGGER.warning("No processed CAMS carbon data supplied")
+        for c in CARBON_FEATURES:
+            base[c] = np.nan
     for c in GLACIER_FEATURES:
         if c not in base.columns:
             base[c] = np.nan
@@ -352,7 +441,7 @@ def build_training_table(river: pd.DataFrame, rainfall: pd.DataFrame, events: pd
     base["month"] = base.observed_at.dt.month.astype("int8")
     base["day_of_year"] = base.observed_at.dt.dayofyear.astype("int16")
     base["is_monsoon"] = base.month.isin([6, 7, 8, 9]).astype("int8")
-    ordered = ["station_id", "observed_at", "station", "state", "district", "river", "basin"] + RAIN_FEATURES + RIVER_FEATURES + HISTORICAL_FEATURES + TERRAIN_FEATURES + GLACIER_FEATURES + ["month", "day_of_year", "is_monsoon", TARGET_COLUMN]
+    ordered = ["station_id", "observed_at", "station", "state", "district", "river", "basin"] + RAIN_FEATURES + RIVER_FEATURES + HISTORICAL_FEATURES + TERRAIN_FEATURES + CARBON_FEATURES + GLACIER_FEATURES + ["month", "day_of_year", "is_monsoon", TARGET_COLUMN]
     return base[[c for c in ordered if c in base.columns]].sort_values(["station_id", "observed_at"], kind="stable").reset_index(drop=True)
 
 
@@ -410,19 +499,23 @@ def load_processed_inputs(data_root: str | Path = DEFAULT_DATA_ROOT):
     events = _read_processed(root, "past_events/parquet/past_flood_events.parquet", "past flood events")
     glacier_path = root / "processed" / "glaciers_data" / "parquet" / "glacier_changes.parquet"
     glaciers = pd.read_parquet(glacier_path) if glacier_path.exists() else None
+    carbon_path = root / "processed" / "carbon_emission" / "parquet" / "carbon_hilly_monthly.parquet"
+    carbon_regional_path = root / "processed" / "carbon_emission" / "parquet" / "carbon_regional_monthly.parquet"
+    carbon = pd.read_parquet(carbon_path) if carbon_path.exists() else None
+    carbon_regional = pd.read_parquet(carbon_regional_path) if carbon_regional_path.exists() else None
     if glaciers is None:
         LOGGER.warning("No combined glacier Parquet found: %s", glacier_path)
     else:
         LOGGER.info("Reading glacier data: %s", glacier_path)
-    return river, rainfall, events, glaciers
+    return river, rainfall, events, glaciers, carbon, carbon_regional
 
 
 def build_training_dataset(data_root: str | Path = DEFAULT_DATA_ROOT, output_path: str | Path | None = None, rainfall_max_distance_km: float = 50.0, horizon_hours: int = 72) -> Path:
     root = Path(data_root)
     output = Path(output_path) if output_path is not None else root / "processed" / "v2_train.parquet"
-    river, rainfall, events, glaciers = load_processed_inputs(root)
-    LOGGER.info("Input sizes: river=%d rainfall=%d events=%d glaciers=%s", len(river), len(rainfall), len(events), len(glaciers) if glaciers is not None else "none")
-    table = build_training_table(river, rainfall, events, glaciers, rainfall_max_distance_km, horizon_hours)
+    river, rainfall, events, glaciers, carbon, carbon_regional = load_processed_inputs(root)
+    LOGGER.info("Input sizes: river=%d rainfall=%d events=%d glaciers=%s carbon=%s", len(river), len(rainfall), len(events), len(glaciers) if glaciers is not None else "none", len(carbon) if carbon is not None else "none")
+    table = build_training_table(river, rainfall, events, glaciers, carbon, carbon_regional, rainfall_max_distance_km, 150.0, horizon_hours)
     if table.empty:
         raise ValueError("V2 training table is empty")
     positives = int(table[TARGET_COLUMN].sum())
