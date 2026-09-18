@@ -30,8 +30,7 @@ CANONICAL_COLUMNS = [
     "wind_before", "wind_after", "glacier_impact", "glof_risk", "peak_waterlevel_text", "regularity",
     "return_interval_text", "snowmelt", "cloudburst", "steep_topography", "landslide", "deforestation",
     "encroachment", "major_causes", "casualties", "victims", "severity_index_text", "slope_range_text",
-    "river_distance_range_text", "land_cover_range_text", "co2_emissions_tons_year", "source_file",
-    "source_row_number",
+    "river_distance_range_text", "land_cover_range_text", "source_file", "source_row_number",
 ]
 _NUMERIC_COLUMNS = [
     "peak_waterlevel_m", "severity_index", "slope_min_deg", "slope_max_deg", "slope_mid_deg",
@@ -110,9 +109,7 @@ def clean_past_events_data(df: pd.DataFrame, source_file: str | Path) -> pd.Data
     result["river_distance_mid_m"] = river_distance.mean(axis=1)
     result["land_cover_min_km2"], result["land_cover_max_km2"] = land_cover[0], land_cover[1]
     result["land_cover_mid_km2"] = land_cover.mean(axis=1)
-    result["co2_emissions_tons_year"] = result.get(
-        "co2_emissions_tons_year", pd.Series(index=result.index, dtype="string")
-    ).map(_extract_number)
+    result["co2_emissions_tons_year"] = result.get("co2_emissions_tons_year", pd.Series(index=result.index, dtype="string")).map(_extract_number)
     result["source_file"] = Path(source_file).as_posix()
     result["source_row_number"] = np.arange(1, len(result) + 1, dtype=np.int64)
     result = result.dropna(subset=["event_id", "event_date"]).copy()
@@ -121,9 +118,9 @@ def clean_past_events_data(df: pd.DataFrame, source_file: str | Path) -> pd.Data
     for column in CANONICAL_COLUMNS:
         if column not in result:
             result[column] = pd.NA
-    text_columns = [c for c in CANONICAL_COLUMNS if c not in {"event_date", "source_row_number", "co2_emissions_tons_year"}]
-    for column in text_columns:
-        result[column] = result[column].astype("string")
+    for column in CANONICAL_COLUMNS:
+        if column not in {"event_date", "source_row_number"}:
+            result[column] = result[column].astype("string")
     result["event_date"] = pd.to_datetime(result["event_date"], errors="coerce")
     result["source_row_number"] = pd.to_numeric(result["source_row_number"], errors="coerce").astype("Int64")
     for column in _NUMERIC_COLUMNS:
