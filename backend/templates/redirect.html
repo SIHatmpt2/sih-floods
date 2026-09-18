@@ -44,51 +44,51 @@
             {{ weather.observed_at|timezone:"Asia/Kolkata"|default_if_none:"—" }}
         </div>
 
-        <div class="details-grid">
+        <div class="details-categories">
+            <div class="intelligence-category">
+                <div class="category-title">Risk</div>
+                <div class="details-grid">
             <div class="info-card">
                 <div class="info-label">Risk Score</div>
                 <div class="info-value">
                     {{ risk.risk_score|floatformat:1|default_if_none:"—" }}<span class="score-max">/100</span>
                 </div>
-                <div class="info-subtext">Model score (0–100)</div>
-            </div>
             <div class="info-card">
                 <div class="info-label">Risk Level</div>
                 <div class="info-value risk-level-{{ risk.risk_level|slugify }}">
                     {{ risk.risk_level|default_if_none:"—"|title }}
                 </div>
-                <div class="info-subtext">Current model classification</div>
+                </div>
             </div>
+            <div class="intelligence-category">
+                <div class="category-title">Weather</div>
+                <div class="details-grid">
             <div class="info-card">
                 <div class="info-label">Rainfall</div>
                 <div class="info-subtext">Last 24 hours</div>
                 <div class="info-value">
                     {{ weather_outputs.rainfall_mm|default_if_none:"—" }}{% if weather_outputs.rainfall_mm != None %} mm{% endif %}
                 </div>
-                <div class="info-subtext">
-                    Last 7 days · {{ weather_outputs.rainfall_7d_mm|default_if_none:"—" }} mm · Live weather
-                </div>
-            </div>
             <div class="info-card">
                 <div class="info-label">Temperature</div>
                 <div class="info-value">
                     {{ weather_outputs.temperature_c|default_if_none:"—" }}{% if weather_outputs.temperature_c != None %} °C{% endif %}
                 </div>
-                <div class="info-subtext">Latest observation · Live weather</div>
-            </div>
             <div class="info-card">
                 <div class="info-label">Humidity</div>
                 <div class="info-value">
                     {{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}
                 </div>
-                <div class="info-subtext">Latest observation · Live weather</div>
-            </div>
-
             <div class="info-card">
                 <div class="info-label">Slope</div>
                 <div class="info-value">—</div>
                 <div class="info-subtext">Terrain slope</div>
             </div>
+                </div>
+            </div>
+            <div class="intelligence-category">
+                <div class="category-title">Terrain & Hydrology</div>
+                <div class="details-grid">
             <div class="info-card">
                 <div class="info-label">River Distance</div>
                 <div class="info-value">—</div>
@@ -99,6 +99,11 @@
                 <div class="info-value">—</div>
                 <div class="info-subtext">Current area affected</div>
             </div>
+                </div>
+            </div>
+            <div class="intelligence-category">
+                <div class="category-title">Soil</div>
+                <div class="details-grid">
             <div class="info-card">
                 <div class="info-label">Forest Cover</div>
                 <div class="info-value">—</div>
@@ -114,6 +119,11 @@
                 <div class="info-value">—</div>
                 <div class="info-subtext">Last 1 year · tons/year</div>
             </div>
+                </div>
+            </div>
+            <div class="intelligence-category">
+                <div class="category-title">Environment</div>
+                <div class="details-grid">
             <div class="info-card">
                 <div class="info-label">Monsoon Status</div>
                 <div class="info-value">—</div>
@@ -139,7 +149,9 @@
                 <div class="info-value">—</div>
                 <div class="info-subtext">Current affected area</div>
             </div>
-        </div>
+                </div>
+            </div>
+        </div>div>
     </section>
 </div>
 
