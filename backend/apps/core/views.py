@@ -58,6 +58,20 @@ LOCATIONS = {
     "location39": {"name": "Syanachatti, Uttarkashi, Uttarakhand, India", "lat": 30.98, "lng": 78.47},
 }
 
+MONSOON_STATUS_BY_STATE = {
+    "Arunachal Pradesh": "Yes",
+    "Assam": "Yes",
+    "Himachal Pradesh": "Yes",
+    "Jammu & Kashmir": "Yes",
+    "Manipur": "Yes",
+    "Meghalaya": "Yes",
+    "Mizoram": "Yes",
+    "Nagaland": "Yes",
+    "Sikkim": "Yes",
+    "Tripura": "Yes",
+    "Uttarakhand": "Yes",
+}
+
 
 # Static historical event data used only by the non-Core/Risk intelligence tiles.
 # Each website location is explicitly tied to its corresponding Event ID so that
@@ -132,6 +146,8 @@ def redirect_result(request):
 
     risk = RiskService().current(lat, lon, weather=weather)
     event_tile_data = get_event_tile_data(location_key)
+    state = location["name"].split(",")[-2].strip()
+    monsoon_status = MONSOON_STATUS_BY_STATE.get(state, "No")
     return render(request, "redirect.html", {
         "location": location,
         "location_key": location_key,
@@ -140,6 +156,7 @@ def redirect_result(request):
         "weather_outputs": weather_outputs,
         "risk": risk,
         "event_tile_data": event_tile_data,
+        "monsoon_status": monsoon_status,
     })
 
 
