@@ -136,8 +136,8 @@
                 <div class="info-card">
                                 <div class="info-label">Soil Moisture</div>
                                 <div class="info-value info-value-text{% if event_tile_data.soil_moisture_very_very_high %} moisture-very-very-high{% elif event_tile_data.soil_moisture_very_high %} moisture-very-high{% elif event_tile_data.soil_moisture_high %} moisture-high{% endif %}">
-                                    {% if event_tile_data.soil_moisture_range %}<div>{{ event_tile_data.soil_moisture_range }}</div>{% endif %}
-                                    {% if event_tile_data.soil_moisture_status %}<div>{{ event_tile_data.soil_moisture_status }}</div>{% endif %}
+                                    {% if event_tile_data.soil_moisture_range %}<div class="moisture-range">{{ event_tile_data.soil_moisture_range }}</div>{% endif %}
+                                    {% if event_tile_data.soil_moisture_status %}<div class="moisture-status">{{ event_tile_data.soil_moisture_status }}</div>{% endif %}
                                     {% if not event_tile_data.soil_moisture_range and not event_tile_data.soil_moisture_status %}—{% endif %}
                                 </div>
                                 <div class="info-subtext">Soil moisture</div>
