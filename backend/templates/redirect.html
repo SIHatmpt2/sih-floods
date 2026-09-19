@@ -105,13 +105,13 @@
             <div class="details-grid">
                 <div class="info-card">
                                 <div class="info-label">Slope</div>
-                                <div class="info-value">—</div>
-                                <div class="info-subtext">Terrain slope</div>
+                                <div class="info-value">{{ event_tile_data.slope|default_if_none:"—" }}</div>
+                                <div class="info-subtext">Terrain slope · Historical event data</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">River Distance</div>
-                                <div class="info-value">—</div>
-                                <div class="info-subtext">Distance from nearest river</div>
+                                <div class="info-value">{{ event_tile_data.river_distance|default_if_none:"—" }}</div>
+                                <div class="info-subtext">Distance from river · Historical event data</div>
                             </div>
             </div>
         </div>
@@ -121,18 +121,18 @@
             <div class="details-grid">
                 <div class="info-card">
                                 <div class="info-label">Soil Texture</div>
-                                <div class="info-value">—</div>
-                                <div class="info-subtext">Soil classification</div>
+                                <div class="info-value info-value-text">{{ event_tile_data.soil_texture|default_if_none:"—" }}</div>
+                                <div class="info-subtext">Soil classification · Historical event data</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Soil Status</div>
-                                <div class="info-value">—</div>
-                                <div class="info-subtext">Current soil condition</div>
+                                <div class="info-value info-value-text">{{ event_tile_data.soil_status|default_if_none:"—" }}</div>
+                                <div class="info-subtext">Soil condition · Historical event data</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Soil Moisture</div>
-                                <div class="info-value">—</div>
-                                <div class="info-subtext">Current moisture level</div>
+                                <div class="info-value info-value-text">{{ event_tile_data.soil_moisture|default_if_none:"—" }}</div>
+                                <div class="info-subtext">Soil moisture · Historical event data</div>
                             </div>
             </div>
         </div>
@@ -142,28 +142,28 @@
             <div class="details-grid">
                 <div class="info-card">
                                 <div class="info-label">Deforestation</div>
-                                <div class="info-value">—</div>
-                                <div class="info-subtext">Current area affected</div>
+                                <div class="info-value info-value-text">{{ event_tile_data.deforestation|default_if_none:"—" }}</div>
+                                <div class="info-subtext">Dataset observation · Historical event data</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Forest Cover</div>
-                                <div class="info-value">—</div>
-                                <div class="info-subtext">Forest-covered area</div>
+                                <div class="info-value">{{ event_tile_data.forest_cover|default_if_none:"—" }}{% if event_tile_data.forest_cover %}%{% endif %}</div>
+                                <div class="info-subtext">Forest cover · Historical event data</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Forest Density</div>
-                                <div class="info-value">—</div>
-                                <div class="info-subtext">Trees / km²</div>
+                                <div class="info-value">{{ event_tile_data.forest_density|default_if_none:"—" }}</div>
+                                <div class="info-subtext">Trees / km² · Historical event data</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Carbon Emissions</div>
-                                <div class="info-value">—</div>
-                                <div class="info-subtext">Last 1 year · tons/year</div>
+                                <div class="info-value">{{ event_tile_data.carbon_emissions|default_if_none:"—" }}</div>
+                                <div class="info-subtext">CO₂ emissions · tons/year · Historical event data</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Encroachment</div>
-                                <div class="info-value">—</div>
-                                <div class="info-subtext">Current affected area</div>
+                                <div class="info-value info-value-text">{{ event_tile_data.encroachment|default_if_none:"—" }}</div>
+                                <div class="info-subtext">Dataset observation · Historical event data</div>
                             </div>
             </div>
         </div>
