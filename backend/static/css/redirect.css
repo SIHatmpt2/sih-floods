@@ -336,3 +336,14 @@
 .carbon-high {
     color: #dc2626;
 }
+
+/* Soil moisture layout */
+.moisture-range,
+.moisture-status {
+    display: block;
+}
+
+.moisture-status {
+    margin-top: 4px;
+    font-weight: 700;
+}
