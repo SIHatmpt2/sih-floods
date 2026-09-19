@@ -116,9 +116,18 @@ def load_event_tile_data():
 def get_event_tile_data(location_key):
     event_id = EVENT_ID_BY_LOCATION.get(location_key)
     row = load_event_tile_data().get(event_id, {})
+    slope_value = row.get(TILE_COLUMNS["slope"], "")
+    slope_text = str(slope_value).lower()
+    slope_numbers = []
+    import re
+    for match in re.findall(r"\\d+(?:\\.\\d+)?", slope_text):
+        slope_numbers.append(float(match))
+    slope_high = "near-vertical" in slope_text or "near vertical" in slope_text or any(value > 65 for value in slope_numbers)
+
     return {
         "event_id": event_id,
-        "slope": row.get(TILE_COLUMNS["slope"], ""),
+        "slope": slope_value,
+        "slope_high": slope_high,
         "river_distance": row.get(TILE_COLUMNS["river_distance"], ""),
         "soil_texture": row.get(TILE_COLUMNS["soil_texture"], ""),
         "soil_status": row.get(TILE_COLUMNS["soil_status"], ""),
