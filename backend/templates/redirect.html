@@ -94,7 +94,7 @@
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Monsoon Status</div>
-                                <div class="info-value">—</div>
+                                <div class="info-value">{% if location.name|lower|slice:":-22" %}{% endif %}{% if "Sikkim" in location.name or "Assam" in location.name %}Yes{% else %}NO{% endif %}</div>
                                 <div class="info-subtext">Seasonal status</div>
                             </div>
             </div>
@@ -147,7 +147,7 @@
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Forest Cover</div>
-                                <div class="info-value">{{ event_tile_data.forest_cover|default_if_none:"—" }}{% if event_tile_data.forest_cover %}%{% endif %}</div>
+                                <div class="info-value">{{ event_tile_data.forest_cover|default_if_none:"—" }}</div>
                                 <div class="info-subtext">Forest cover · Historical event data</div>
                             </div>
                 <div class="info-card">
