@@ -123,11 +123,13 @@ def get_event_tile_data(location_key):
     for match in re.findall(r"\\d+(?:\\.\\d+)?", slope_text):
         slope_numbers.append(float(match))
     slope_high = "near-vertical" in slope_text or "near vertical" in slope_text or any(value > 65 for value in slope_numbers)
+    slope_medium = not slope_high and any(value >= 40 for value in slope_numbers)
 
     return {
         "event_id": event_id,
         "slope": slope_value,
         "slope_high": slope_high,
+        "slope_medium": slope_medium,
         "river_distance": row.get(TILE_COLUMNS["river_distance"], ""),
         "soil_texture": row.get(TILE_COLUMNS["soil_texture"], ""),
         "soil_status": row.get(TILE_COLUMNS["soil_status"], ""),
