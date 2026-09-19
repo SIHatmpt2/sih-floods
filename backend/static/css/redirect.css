@@ -347,3 +347,16 @@
     margin-top: 4px;
     font-weight: 700;
 }
+
+/* Soil moisture: keep percentage plain; color and slightly enlarge status only */
+.moisture-range {
+    font-size: 16px;
+    font-weight: 400;
+    color: #102d51;
+}
+
+.moisture-status {
+    margin-top: 4px;
+    font-size: 16px;
+    font-weight: 700;
+}
