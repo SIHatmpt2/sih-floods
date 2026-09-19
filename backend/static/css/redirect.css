@@ -285,9 +285,31 @@
     letter-spacing: normal;
 }
 
+/* Match each tile description to its tile's left accent color. */
 .intelligence-category .info-subtext {
     color: #4f647d;
 }
+
+.intelligence-category:nth-child(1) .info-card:nth-child(1) .info-subtext { color: #173f6c; }
+.intelligence-category:nth-child(1) .info-card:nth-child(2) .info-subtext { color: #14594d; }
+
+.intelligence-category:nth-child(2) .info-card:nth-child(1) .info-subtext { color: #70451f; }
+.intelligence-category:nth-child(2) .info-card:nth-child(2) .info-subtext { color: #302d79; }
+.intelligence-category:nth-child(2) .info-card:nth-child(3) .info-subtext { color: #0079FE; }
+.intelligence-category:nth-child(2) .info-card:nth-child(4) .info-subtext { color: #4d8061; }
+
+.intelligence-category:nth-child(3) .info-card:nth-child(1) .info-subtext { color: #5f6f82; }
+.intelligence-category:nth-child(3) .info-card:nth-child(2) .info-subtext { color: #806548; }
+
+.intelligence-category:nth-child(4) .info-card:nth-child(1) .info-subtext { color: #806548; }
+.intelligence-category:nth-child(4) .info-card:nth-child(2) .info-subtext { color: #6d7650; }
+.intelligence-category:nth-child(4) .info-card:nth-child(3) .info-subtext { color: #55745f; }
+
+.intelligence-category:nth-child(5) .info-card:nth-child(1) .info-subtext { color: #5d744d; }
+.intelligence-category:nth-child(5) .info-card:nth-child(2) .info-subtext { color: #376b51; }
+.intelligence-category:nth-child(5) .info-card:nth-child(3) .info-subtext { color: #285c48; }
+.intelligence-category:nth-child(5) .info-card:nth-child(4) .info-subtext { color: #536c4d; }
+.intelligence-category:nth-child(5) .info-card:nth-child(5) .info-subtext { color: #735f43; }
 
 
 /* Text-valued dataset tiles: keep the existing card position while allowing
