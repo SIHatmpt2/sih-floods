@@ -88,7 +88,11 @@
                 <div class="info-card">
                                 <div class="info-label">Humidity</div>
                                 <div class="info-value">
-                                    {{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}
+                                    {% if weather_outputs.humidity > 80 %}
+                                        <span class="humidity-high">80%</span>
+                                    {% else %}
+                                        {{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}
+                                    {% endif %}
                                 </div>
                                 <div class="info-subtext">Latest observation · Live weather</div>
                             </div>
