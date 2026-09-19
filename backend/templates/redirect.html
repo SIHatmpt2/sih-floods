@@ -141,9 +141,9 @@
             <div class="category-title">Environment</div>
             <div class="details-grid">
                 <div class="info-card">
-                                <div class="info-label">Deforestation</div>
-                                <div class="info-value info-value-text">{{ event_tile_data.deforestation|default_if_none:"—" }}</div>
-                                <div class="info-subtext">Dataset observation</div>
+                                <div class="info-label">Carbon Emissions</div>
+                                <div class="info-value">{{ event_tile_data.carbon_emissions|default_if_none:"—" }}</div>
+                                <div class="info-subtext">CO₂ emissions · tons/year</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Forest Cover</div>
@@ -156,9 +156,9 @@
                                 <div class="info-subtext">Trees / km²</div>
                             </div>
                 <div class="info-card">
-                                <div class="info-label">Carbon Emissions</div>
-                                <div class="info-value">{{ event_tile_data.carbon_emissions|default_if_none:"—" }}</div>
-                                <div class="info-subtext">CO₂ emissions · tons/year</div>
+                                <div class="info-label">Deforestation</div>
+                                <div class="info-value info-value-text">{{ event_tile_data.deforestation|default_if_none:"—" }}</div>
+                                <div class="info-subtext">Dataset observation</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Encroachment</div>
