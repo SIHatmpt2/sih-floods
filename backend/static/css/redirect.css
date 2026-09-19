@@ -314,3 +314,25 @@
 .slope-medium {
     color: #d97706;
 }
+
+/* Soil moisture severity */
+.moisture-high {
+    color: #d97706;
+}
+
+.moisture-very-high {
+    color: #dc2626;
+}
+
+.moisture-very-very-high {
+    color: #7f1d1d;
+}
+
+/* Carbon emissions severity */
+.carbon-medium {
+    color: #d97706;
+}
+
+.carbon-high {
+    color: #dc2626;
+}
