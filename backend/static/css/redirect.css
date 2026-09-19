@@ -288,3 +288,14 @@
 .intelligence-category .info-subtext {
     color: #7a899a;
 }
+
+
+/* Text-valued dataset tiles: keep the existing card position while allowing
+   descriptive CSV fields to remain readable inside the tile. */
+.intelligence-category .info-value-text {
+    font-size: 14px;
+    line-height: 1.45;
+    font-weight: 600;
+    letter-spacing: normal;
+    overflow-wrap: anywhere;
+}
