@@ -299,3 +299,8 @@
     letter-spacing: normal;
     overflow-wrap: anywhere;
 }
+
+/* High humidity indicator */
+.humidity-high {
+    color: #0079FE;
+}
