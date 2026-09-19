@@ -113,6 +113,25 @@ def load_event_tile_data():
         return {row["Event ID"]: row for row in csv.DictReader(csv_file)}
 
 
+def _comment(text, tone="neutral"):
+    return {"text": text, "tone": tone}
+
+
+def _numeric_value(value):
+    import re
+    match = re.search(r"-?\\d+(?:\\.\\d+)?", str(value))
+    return float(match.group()) if match else None
+
+
+def _text_tone(value):
+    text = str(value or "").lower()
+    if any(word in text for word in ("high", "severe", "heavy", "significant", "major", "poor")):
+        return "negative"
+    if any(word in text for word in ("low", "minimal", "normal", "good", "stable", "healthy", "dense")):
+        return "positive"
+    return "neutral"
+
+
 def get_event_tile_data(location_key):
     event_id = EVENT_ID_BY_LOCATION.get(location_key)
     row = load_event_tile_data().get(event_id, {})
@@ -145,6 +164,25 @@ def get_event_tile_data(location_key):
     carbon_high = carbon_numeric is not None and carbon_numeric >= 30000
     carbon_medium = carbon_numeric is not None and 10000 < carbon_numeric < 30000
 
+    river_numeric = _numeric_value(row.get(TILE_COLUMNS["river_distance"], ""))
+    forest_cover_numeric = _numeric_value(row.get(TILE_COLUMNS["forest_cover"], ""))
+    forest_density_numeric = _numeric_value(row.get(TILE_COLUMNS["forest_density"], ""))
+    soil_status = row.get(TILE_COLUMNS["soil_status"], "")
+    deforestation = row.get(TILE_COLUMNS["deforestation"], "")
+    encroachment = row.get(TILE_COLUMNS["encroachment"], "")
+    comments = {
+        "slope": _comment("Very steep terrain — runoff potential elevated" if slope_high else "Moderately steep terrain — runoff may increase" if slope_medium else "Gentle terrain — lower slope-driven runoff", "negative" if slope_high or slope_medium else "positive"),
+        "river_distance": _comment("Close to river — flood exposure is elevated" if river_numeric is not None and river_numeric < 500 else "More distant from river — lower direct exposure" if river_numeric is not None else "River proximity unavailable", "negative" if river_numeric is not None and river_numeric < 500 else "positive" if river_numeric is not None else "neutral"),
+        "soil_texture": _comment("Texture affects infiltration and surface runoff"),
+        "soil_status": _comment("Soil condition may support rapid runoff" if _text_tone(soil_status) == "negative" else "Soil condition appears favorable" if _text_tone(soil_status) == "positive" else "Soil condition requires context", _text_tone(soil_status)),
+        "soil_moisture": _comment("Very high moisture — saturation risk elevated" if soil_moisture_very_very_high or soil_moisture_very_high else "High moisture — soil is becoming saturated" if soil_moisture_high else "Moisture level appears favorable", "negative" if soil_moisture_very_very_high or soil_moisture_very_high or soil_moisture_high else "positive"),
+        "carbon_emissions": _comment("High emissions — environmental pressure is elevated" if carbon_high else "Moderate emissions — environmental pressure is present" if carbon_medium else "Lower emissions level", "negative" if carbon_high or carbon_medium else "positive"),
+        "forest_cover": _comment("Strong forest cover — helps reduce surface runoff" if forest_cover_numeric is not None and forest_cover_numeric >= 50 else "Limited forest cover — runoff buffering is reduced" if forest_cover_numeric is not None else "Forest-cover value unavailable", "positive" if forest_cover_numeric is not None and forest_cover_numeric >= 50 else "negative" if forest_cover_numeric is not None else "neutral"),
+        "forest_density": _comment("Dense vegetation — supports slope stability" if forest_density_numeric is not None and forest_density_numeric >= 30000 else "Lower vegetation density — less natural slope protection" if forest_density_numeric is not None else "Forest-density value unavailable", "positive" if forest_density_numeric is not None and forest_density_numeric >= 30000 else "negative" if forest_density_numeric is not None else "neutral"),
+        "deforestation": _comment("Vegetation loss may increase runoff" if _text_tone(deforestation) == "negative" else "Low vegetation loss — natural cover retained" if _text_tone(deforestation) == "positive" else "Deforestation level requires context", _text_tone(deforestation)),
+        "encroachment": _comment("Encroachment may obstruct natural drainage" if _text_tone(encroachment) == "negative" else "Low encroachment — drainage obstruction is limited" if _text_tone(encroachment) == "positive" else "Encroachment level requires context", _text_tone(encroachment)),
+    }
+
     return {
         "event_id": event_id,
         "slope": slope_value,
@@ -166,6 +204,7 @@ def get_event_tile_data(location_key):
         "forest_cover": row.get(TILE_COLUMNS["forest_cover"], ""),
         "forest_density": row.get(TILE_COLUMNS["forest_density"], ""),
         "encroachment": row.get(TILE_COLUMNS["encroachment"], ""),
+        "comments": comments,
     }
 
 
@@ -184,6 +223,16 @@ def redirect_result(request):
 
     risk = RiskService().current(lat, lon, weather=weather)
     event_tile_data = get_event_tile_data(location_key)
+    risk_score = _numeric_value(risk.get("risk_score"))
+    risk_level_text = str(risk.get("risk_level") or "").lower()
+    risk_comment = _comment("High overall flood risk — conditions require attention" if risk_score is not None and risk_score >= 70 else "Lower overall flood risk — current conditions are favorable" if risk_score is not None and risk_score < 40 else "Moderate overall flood risk — continue monitoring" if risk_score is not None else "Risk score unavailable", "negative" if risk_score is not None and risk_score >= 70 else "positive" if risk_score is not None and risk_score < 40 else "neutral")
+    risk_level_comment = _comment("Elevated flood-risk classification" if any(word in risk_level_text for word in ("high", "severe", "very high")) else "Lower flood-risk classification" if any(word in risk_level_text for word in ("low", "safe")) else "Moderate-risk classification — continue monitoring", "negative" if any(word in risk_level_text for word in ("high", "severe", "very high")) else "positive" if any(word in risk_level_text for word in ("low", "safe")) else "neutral")
+    rainfall_numeric = _numeric_value(weather_outputs["rainfall_mm"])
+    humidity_numeric = _numeric_value(weather_outputs["humidity"])
+    rainfall_comment = _comment("Heavy rainfall — flash-flood potential elevated" if rainfall_numeric is not None and rainfall_numeric >= 50 else "Rainfall is relatively low" if rainfall_numeric is not None and rainfall_numeric < 20 else "Rainfall is moderate — continue monitoring" if rainfall_numeric is not None else "Rainfall data unavailable", "negative" if rainfall_numeric is not None and rainfall_numeric >= 50 else "positive" if rainfall_numeric is not None and rainfall_numeric < 20 else "neutral")
+    temperature_comment = _comment("Temperature is not a primary immediate flood trigger" if weather_outputs["temperature_c"] is not None else "Temperature data unavailable")
+    humidity_comment = _comment("High humidity — moisture conditions remain elevated" if humidity_numeric is not None and humidity_numeric > 80 else "Humidity is within a lower range", "negative" if humidity_numeric is not None and humidity_numeric > 80 else "positive")
+    monsoon_comment = _comment("Monsoon conditions can support heavy rainfall" if monsoon_status == "Yes" else "Monsoon influence is currently lower")
     state = location["name"].split(",")[-2].strip()
     monsoon_status = MONSOON_STATUS_BY_STATE.get(state, "No")
     return render(request, "redirect.html", {
@@ -195,6 +244,12 @@ def redirect_result(request):
         "risk": risk,
         "event_tile_data": event_tile_data,
         "monsoon_status": monsoon_status,
+        "risk_comment": risk_comment,
+        "risk_level_comment": risk_level_comment,
+        "rainfall_comment": rainfall_comment,
+        "temperature_comment": temperature_comment,
+        "humidity_comment": humidity_comment,
+        "monsoon_comment": monsoon_comment,
     })
 
 
