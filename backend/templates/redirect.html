@@ -53,6 +53,7 @@
                                 <div class="info-value">
                                     {{ risk.risk_score|floatformat:1|default_if_none:"—" }}<span class="score-max">/100</span>
                                 </div>
+                                <div class="tile-comment {{ risk_comment.tone }}">{{ risk_comment.text }}</div>
                                 <div class="info-subtext">Model score (0–100)</div>
                             </div>
                 <div class="info-card">
@@ -60,6 +61,7 @@
                                 <div class="info-value risk-level-{{ risk.risk_level|slugify }}">
                                     {{ risk.risk_level|default_if_none:"—"|title }}
                                 </div>
+                                <div class="tile-comment {{ risk_level_comment.tone }}">{{ risk_level_comment.text }}</div>
                                 <div class="info-subtext">Current model classification</div>
                             </div>
             </div>
@@ -74,6 +76,7 @@
                                 <div class="info-value">
                                     {{ weather_outputs.rainfall_mm|default_if_none:"—" }}{% if weather_outputs.rainfall_mm != None %} mm{% endif %}
                                 </div>
+                                <div class="tile-comment {{ rainfall_comment.tone }}">{{ rainfall_comment.text }}</div>
                                 <div class="info-subtext">
                                     Last 7 days · {{ weather_outputs.rainfall_7d_mm|default_if_none:"—" }} mm · Live weather
                                 </div>
@@ -83,6 +86,7 @@
                                 <div class="info-value">
                                     {{ weather_outputs.temperature_c|default_if_none:"—" }}{% if weather_outputs.temperature_c != None %} °C{% endif %}
                                 </div>
+                                <div class="tile-comment {{ temperature_comment.tone }}">{{ temperature_comment.text }}</div>
                                 <div class="info-subtext">Latest observation · Live weather</div>
                             </div>
                 <div class="info-card">
@@ -94,11 +98,13 @@
                                         {{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}
                                     {% endif %}
                                 </div>
+                                <div class="tile-comment {{ humidity_comment.tone }}">{{ humidity_comment.text }}</div>
                                 <div class="info-subtext">Latest observation · Live weather</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Monsoon Status</div>
                                 <div class="info-value">{{ monsoon_status }}</div>
+                                <div class="tile-comment {{ monsoon_comment.tone }}">{{ monsoon_comment.text }}</div>
                                 <div class="info-subtext">Seasonal status</div>
                             </div>
             </div>
@@ -110,11 +116,13 @@
                 <div class="info-card">
                                 <div class="info-label">Slope</div>
                                 <div class="info-value{% if event_tile_data.slope_high %} slope-high{% elif event_tile_data.slope_medium %} slope-medium{% endif %}">{{ event_tile_data.slope|default_if_none:"—" }}</div>
+                                <div class="tile-comment {{ event_tile_data.comments.slope.tone }}">{{ event_tile_data.comments.slope.text }}</div>
                                 <div class="info-subtext">Terrain slope</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">River Distance</div>
                                 <div class="info-value">{{ event_tile_data.river_distance|default_if_none:"—" }}</div>
+                                <div class="tile-comment {{ event_tile_data.comments.river_distance.tone }}">{{ event_tile_data.comments.river_distance.text }}</div>
                                 <div class="info-subtext">Distance from river</div>
                             </div>
             </div>
@@ -126,20 +134,23 @@
                 <div class="info-card">
                                 <div class="info-label">Soil Texture</div>
                                 <div class="info-value info-value-text">{{ event_tile_data.soil_texture|default_if_none:"—" }}</div>
+                                <div class="tile-comment {{ event_tile_data.comments.soil_texture.tone }}">{{ event_tile_data.comments.soil_texture.text }}</div>
                                 <div class="info-subtext">Soil classification</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Soil Status</div>
                                 <div class="info-value info-value-text">{{ event_tile_data.soil_status|default_if_none:"—" }}</div>
+                                <div class="tile-comment {{ event_tile_data.comments.soil_status.tone }}">{{ event_tile_data.comments.soil_status.text }}</div>
                                 <div class="info-subtext">Soil condition</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Soil Moisture</div>
-                                <div class="info-value info-value-text{% if event_tile_data.soil_moisture_very_very_high %} moisture-very-very-high{% elif event_tile_data.soil_moisture_very_high %} moisture-very-high{% elif event_tile_data.soil_moisture_high %} moisture-high{% endif %}">
+                                <div class="info-value info-value-text">
                                     {% if event_tile_data.soil_moisture_range %}<div class="moisture-range">{{ event_tile_data.soil_moisture_range }}</div>{% endif %}
-                                    {% if event_tile_data.soil_moisture_status %}<div class="moisture-status">{{ event_tile_data.soil_moisture_status }}</div>{% endif %}
+                                    {% if event_tile_data.soil_moisture_status %}<div class="moisture-status{% if event_tile_data.soil_moisture_very_very_high %} moisture-very-very-high{% elif event_tile_data.soil_moisture_very_high %} moisture-very-high{% elif event_tile_data.soil_moisture_high %} moisture-high{% endif %}">{{ event_tile_data.soil_moisture_status }}</div>{% endif %}
                                     {% if not event_tile_data.soil_moisture_range and not event_tile_data.soil_moisture_status %}—{% endif %}
                                 </div>
+                                <div class="tile-comment {{ event_tile_data.comments.soil_moisture.tone }}">{{ event_tile_data.comments.soil_moisture.text }}</div>
                                 <div class="info-subtext">Soil moisture</div>
                             </div>
             </div>
@@ -151,26 +162,31 @@
                 <div class="info-card">
                                 <div class="info-label">Carbon Emissions</div>
                                 <div class="info-value{% if event_tile_data.carbon_high %} carbon-high{% elif event_tile_data.carbon_medium %} carbon-medium{% endif %}">{{ event_tile_data.carbon_emissions|default_if_none:"—" }}</div>
+                                <div class="tile-comment {{ event_tile_data.comments.carbon_emissions.tone }}">{{ event_tile_data.comments.carbon_emissions.text }}</div>
                                 <div class="info-subtext">CO₂ emissions · tons/year</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Forest Cover</div>
                                 <div class="info-value">{{ event_tile_data.forest_cover|default_if_none:"—" }}</div>
+                                <div class="tile-comment {{ event_tile_data.comments.forest_cover.tone }}">{{ event_tile_data.comments.forest_cover.text }}</div>
                                 <div class="info-subtext">Forest cover</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Forest Density</div>
                                 <div class="info-value">{{ event_tile_data.forest_density|default_if_none:"—" }}</div>
+                                <div class="tile-comment {{ event_tile_data.comments.forest_density.tone }}">{{ event_tile_data.comments.forest_density.text }}</div>
                                 <div class="info-subtext">Trees / km²</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Deforestation</div>
                                 <div class="info-value info-value-text">{{ event_tile_data.deforestation|default_if_none:"—" }}</div>
+                                <div class="tile-comment {{ event_tile_data.comments.deforestation.tone }}">{{ event_tile_data.comments.deforestation.text }}</div>
                                 <div class="info-subtext">Dataset observation</div>
                             </div>
                 <div class="info-card">
                                 <div class="info-label">Encroachment</div>
                                 <div class="info-value info-value-text">{{ event_tile_data.encroachment|default_if_none:"—" }}</div>
+                                <div class="tile-comment {{ event_tile_data.comments.encroachment.tone }}">{{ event_tile_data.comments.encroachment.text }}</div>
                                 <div class="info-subtext">Dataset observation</div>
                             </div>
             </div>
