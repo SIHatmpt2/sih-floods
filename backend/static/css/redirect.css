@@ -309,3 +309,8 @@
 .slope-high {
     color: #dc2626;
 }
+
+/* Slope severity indicators */
+.slope-medium {
+    color: #d97706;
+}
