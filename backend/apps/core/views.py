@@ -119,7 +119,7 @@ def _comment(text, tone="neutral"):
 
 def _numeric_value(value):
     import re
-    match = re.search(r"-?\\d+(?:\\.\\d+)?", str(value))
+    match = re.search(r"-?\d+(?:\.\d+)?", str(value))
     return float(match.group()) if match else None
 
 
