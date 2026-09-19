@@ -1,3 +1,8 @@
+import csv
+from functools import lru_cache
+from pathlib import Path
+
+from django.conf import settings
 from django.shortcuts import render
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -54,6 +59,64 @@ LOCATIONS = {
 }
 
 
+# Static historical event data used only by the non-Core/Risk intelligence tiles.
+# Each website location is explicitly tied to its corresponding Event ID so that
+# matching does not depend on punctuation/spelling differences in the CSV Location field.
+EVENT_ID_BY_LOCATION = {
+    "location1": "AR26-001", "location2": "HP26-002", "location3": "HP26-003",
+    "location4": "HP26-004", "location5": "AS26-005", "location6": "AS26-006",
+    "location7": "UK26-007", "location8": "AS25-008", "location9": "AR25-009",
+    "location10": "MG25-010", "location11": "UK25-011", "location12": "HP25-012",
+    "location13": "JK25-013", "location14": "JK25-014", "location15": "AS24-015",
+    "location16": "AR24-016", "location17": "SK24-017", "location18": "MN24-018",
+    "location19": "TR24-019", "location20": "UK24-020", "location21": "HP24-021",
+    "location22": "AR23-022", "location23": "AS23-023", "location24": "MG23-024",
+    "location25": "HP23-025", "location26": "UK23-026", "location27": "SK23-027",
+    "location28": "JK23-028", "location29": "AS22-029", "location30": "AR22-030",
+    "location31": "MG22-031", "location32": "MN22-032", "location33": "SK22-033",
+    "location34": "HP22-034", "location35": "UK22-035", "location36": "JK22-036",
+    "location37": "MZ22-037", "location38": "NL22-038", "location39": "TR22-039",
+}
+
+TILE_COLUMNS = {
+    "slope": "Slope(In degrees)",
+    "river_distance": "River distance(metres)",
+    "soil_texture": "Soil Texture",
+    "soil_status": "Soil status",
+    "soil_moisture": "Soil Moisture",
+    "deforestation": "Deforestation",
+    "forest_cover": "Forest cover",
+    "forest_density": "Estimated trees/km²",
+    "carbon_emissions": "CO2 emissions in tons/year",
+    "encroachment": "Enroachment",
+}
+
+
+@lru_cache(maxsize=1)
+def load_event_tile_data():
+    dataset_path = Path(settings.BASE_DIR) / "data" / "raw" / "Raw_Events_Location.csv"
+    with dataset_path.open("r", encoding="utf-8-sig", newline="") as csv_file:
+        return {row["Event ID"]: row for row in csv.DictReader(csv_file)}
+
+
+def get_event_tile_data(location_key):
+    event_id = EVENT_ID_BY_LOCATION.get(location_key)
+    row = load_event_tile_data().get(event_id, {})
+    return {
+        "event_id": event_id,
+        "slope": row.get(TILE_COLUMNS["slope"], ""),
+        "river_distance": row.get(TILE_COLUMNS["river_distance"], ""),
+        "soil_texture": row.get(TILE_COLUMNS["soil_texture"], ""),
+        "soil_status": row.get(TILE_COLUMNS["soil_status"], ""),
+        "soil_moisture": row.get(TILE_COLUMNS["soil_moisture"], ""),
+        "deforestation": row.get(TILE_COLUMNS["deforestation"], ""),
+        "forest_cover": row.get(TILE_COLUMNS["forest_cover"], ""),
+        "forest_density": row.get(TILE_COLUMNS["forest_density"], ""),
+        "carbon_emissions": row.get(TILE_COLUMNS["carbon_emissions"], ""),
+        "encroachment": row.get(TILE_COLUMNS["encroachment"], ""),
+    }
+
+
 def redirect_result(request):
     location_key = request.GET.get("location", "location1")
     location = LOCATIONS.get(location_key, LOCATIONS["location1"])
@@ -68,6 +131,7 @@ def redirect_result(request):
     }
 
     risk = RiskService().current(lat, lon, weather=weather)
+    event_tile_data = get_event_tile_data(location_key)
     return render(request, "redirect.html", {
         "location": location,
         "location_key": location_key,
@@ -75,6 +139,7 @@ def redirect_result(request):
         "weather": weather,
         "weather_outputs": weather_outputs,
         "risk": risk,
+        "event_tile_data": event_tile_data,
     })
 
 
