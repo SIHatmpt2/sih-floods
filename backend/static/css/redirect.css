@@ -360,3 +360,10 @@
     font-size: 16px;
     font-weight: 700;
 }
+
+
+/* One-line tile conclusions */
+.tile-comment { margin-top: 5px; font-size: 11px; line-height: 1.35; font-weight: 600; min-height: 15px; }
+.tile-comment.positive { color: #1f8a4c; }
+.tile-comment.negative { color: #dc2626; }
+.tile-comment.neutral { color: #718198; }
