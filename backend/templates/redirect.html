@@ -83,11 +83,6 @@
                     <div class="info-value">{{ weather_outputs.humidity|default_if_none:"—" }}{% if weather_outputs.humidity != None %}%{% endif %}</div>
                     <div class="info-subtext">Latest observation · {% if current_mode %}Live weather{% else %}Historical weather{% endif %}</div>
                 </div>
-                <div class="info-card">
-                    <div class="info-label">Monsoon Status</div>
-                    <div class="info-value">—</div>
-                    <div class="info-subtext">Seasonal status</div>
-                </div>
             </div>
         </div>
 
