@@ -109,7 +109,7 @@
             <div class="details-grid">
                 <div class="info-card">
                                 <div class="info-label">Slope</div>
-                                <div class="info-value{% if event_tile_data.slope_high %} slope-high{% endif %}">{{ event_tile_data.slope|default_if_none:"—" }}</div>
+                                <div class="info-value{% if event_tile_data.slope_high %} slope-high{% elif event_tile_data.slope_medium %} slope-medium{% endif %}">{{ event_tile_data.slope|default_if_none:"—" }}</div>
                                 <div class="info-subtext">Terrain slope</div>
                             </div>
                 <div class="info-card">
