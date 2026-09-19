@@ -128,7 +128,7 @@ def get_event_tile_data(location_key):
 
     soil_moisture_value = row.get(TILE_COLUMNS["soil_moisture"], "")
     moisture_text = str(soil_moisture_value)
-    moisture_match = re.search(r"^(.*?)(?:\\s*)\\(([^)]+)\\)", moisture_text)
+    moisture_match = re.search(r"^(.*?)\s*\(([^)]+)\)", moisture_text)
     soil_moisture_range = moisture_match.group(1).strip() if moisture_match else moisture_text
     soil_moisture_status = moisture_match.group(2).strip() if moisture_match else ""
     moisture_status_text = soil_moisture_status.lower()
