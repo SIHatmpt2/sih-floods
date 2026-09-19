@@ -232,9 +232,9 @@ def redirect_result(request):
     rainfall_comment = _comment("Heavy rainfall — flash-flood potential elevated" if rainfall_numeric is not None and rainfall_numeric >= 50 else "Rainfall is relatively low" if rainfall_numeric is not None and rainfall_numeric < 20 else "Rainfall is moderate — continue monitoring" if rainfall_numeric is not None else "Rainfall data unavailable", "negative" if rainfall_numeric is not None and rainfall_numeric >= 50 else "positive" if rainfall_numeric is not None and rainfall_numeric < 20 else "neutral")
     temperature_comment = _comment("Temperature is not a primary immediate flood trigger" if weather_outputs["temperature_c"] is not None else "Temperature data unavailable")
     humidity_comment = _comment("High humidity — moisture conditions remain elevated" if humidity_numeric is not None and humidity_numeric > 80 else "Humidity is within a lower range", "negative" if humidity_numeric is not None and humidity_numeric > 80 else "positive")
-    monsoon_comment = _comment("Monsoon conditions can support heavy rainfall" if monsoon_status == "Yes" else "Monsoon influence is currently lower")
     state = location["name"].split(",")[-2].strip()
     monsoon_status = MONSOON_STATUS_BY_STATE.get(state, "No")
+    monsoon_comment = _comment("Monsoon conditions can support heavy rainfall" if monsoon_status == "Yes" else "Monsoon influence is currently lower")
     return render(request, "redirect.html", {
         "location": location,
         "location_key": location_key,
