@@ -120,8 +120,9 @@ def get_event_tile_data(location_key):
     slope_text = str(slope_value).lower()
     slope_numbers = []
     import re
-    for match in re.findall(r"\\d+(?:\\.\\d+)?", slope_text):
+    for match in re.findall(r"\d+(?:\.\d+)?", slope_text):
         slope_numbers.append(float(match))
+    # 40–65° = orange; >65° or any near-vertical wording = red.
     slope_high = "near-vertical" in slope_text or "near vertical" in slope_text or any(value > 65 for value in slope_numbers)
     slope_medium = not slope_high and any(value >= 40 for value in slope_numbers)
 
