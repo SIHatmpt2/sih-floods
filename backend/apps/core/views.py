@@ -126,6 +126,25 @@ def get_event_tile_data(location_key):
     slope_high = "near-vertical" in slope_text or "near vertical" in slope_text or any(value > 65 for value in slope_numbers)
     slope_medium = not slope_high and any(value >= 40 for value in slope_numbers)
 
+    soil_moisture_value = row.get(TILE_COLUMNS["soil_moisture"], "")
+    moisture_text = str(soil_moisture_value)
+    moisture_match = re.search(r"^(.*?)(?:\\s*)\\(([^)]+)\\)", moisture_text)
+    soil_moisture_range = moisture_match.group(1).strip() if moisture_match else moisture_text
+    soil_moisture_status = moisture_match.group(2).strip() if moisture_match else ""
+    moisture_status_text = soil_moisture_status.lower()
+    soil_moisture_very_very_high = "very very high" in moisture_status_text
+    soil_moisture_very_high = not soil_moisture_very_very_high and "very high" in moisture_status_text
+    soil_moisture_high = not soil_moisture_very_high and not soil_moisture_very_very_high and moisture_status_text == "high"
+
+    carbon_value = row.get(TILE_COLUMNS["carbon_emissions"], "")
+    carbon_digits = re.sub(r"[^0-9.]", "", str(carbon_value))
+    try:
+        carbon_numeric = float(carbon_digits) if carbon_digits else None
+    except ValueError:
+        carbon_numeric = None
+    carbon_high = carbon_numeric is not None and carbon_numeric >= 30000
+    carbon_medium = carbon_numeric is not None and 10000 < carbon_numeric < 30000
+
     return {
         "event_id": event_id,
         "slope": slope_value,
@@ -134,11 +153,18 @@ def get_event_tile_data(location_key):
         "river_distance": row.get(TILE_COLUMNS["river_distance"], ""),
         "soil_texture": row.get(TILE_COLUMNS["soil_texture"], ""),
         "soil_status": row.get(TILE_COLUMNS["soil_status"], ""),
-        "soil_moisture": row.get(TILE_COLUMNS["soil_moisture"], ""),
+        "soil_moisture": soil_moisture_value,
+        "soil_moisture_range": soil_moisture_range,
+        "soil_moisture_status": soil_moisture_status,
+        "soil_moisture_high": soil_moisture_high,
+        "soil_moisture_very_high": soil_moisture_very_high,
+        "soil_moisture_very_very_high": soil_moisture_very_very_high,
+        "carbon_emissions": carbon_value,
+        "carbon_medium": carbon_medium,
+        "carbon_high": carbon_high,
         "deforestation": row.get(TILE_COLUMNS["deforestation"], ""),
         "forest_cover": row.get(TILE_COLUMNS["forest_cover"], ""),
         "forest_density": row.get(TILE_COLUMNS["forest_density"], ""),
-        "carbon_emissions": row.get(TILE_COLUMNS["carbon_emissions"], ""),
         "encroachment": row.get(TILE_COLUMNS["encroachment"], ""),
     }
 
