@@ -304,3 +304,8 @@
 .humidity-high {
     color: #0079FE;
 }
+
+/* High / near-vertical slope indicator */
+.slope-high {
+    color: #dc2626;
+}
