@@ -38,9 +38,7 @@ class WeatherService:
             "observed_at": timestamp,
             "temperature_c": row.get("temperature_c"),
             "rainfall_mm": row.get("rainfall_mm"),
-                "rainfall_24h_mm": row.get("rainfall_24h_mm", row.get("rainfall_mm")),
-                "rainfall_24h_mm": row.get("rainfall_24h_mm", row.get("rainfall_mm")),
-            "rainfall_24h_mm": row.get("rainfall_mm"),
+            "rainfall_24h_mm": row.get("rainfall_24h_mm", row.get("rainfall_mm")),
             "humidity": row.get("humidity"),
             "water_level_m": row.get("water_level_m"),
             "discharge_m3s": row.get("discharge_m3s"),
@@ -71,6 +69,7 @@ class WeatherService:
             station=station, timestamp=row["timestamp"],
             defaults={
                 "rainfall_mm": row.get("rainfall_mm"),
+                "rainfall_24h_mm": row.get("rainfall_24h_mm", row.get("rainfall_mm")),
                 "temperature_c": row.get("temperature_c"),
                 "humidity": row.get("humidity"),
                 "water_level_m": row.get("water_level_m"),
