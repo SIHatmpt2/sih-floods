@@ -17,7 +17,7 @@ class WeatherAppTests(SimpleTestCase):
         self.assertIn("http://127.0.0.1:5173", settings.CORS_ALLOWED_ORIGINS)
 
     def test_weather_provider_defaults_are_configured(self):
-        self.assertEqual(settings.WEATHER_PROVIDER_PRIORITY, ["imd", "cwc"])
+        self.assertEqual(settings.WEATHER_PROVIDER_PRIORITY, ["accuweather", "imd"])
 
     def test_project_urls_import_without_backend_package(self):
         import config.urls
