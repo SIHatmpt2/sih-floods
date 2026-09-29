@@ -33,6 +33,7 @@ class WeatherObservation(models.Model):
     station = models.ForeignKey(WeatherStation, on_delete=models.CASCADE, related_name="observations")
     timestamp = models.DateTimeField()
     rainfall_mm = models.FloatField(null=True)
+    rainfall_24h_mm = models.FloatField(null=True)
     temperature_c = models.FloatField(null=True)
     humidity = models.FloatField(null=True)
     water_level_m = models.FloatField(null=True)
