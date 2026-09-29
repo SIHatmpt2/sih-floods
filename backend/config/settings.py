@@ -8,6 +8,7 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = BASE_DIR.parent
+RISK_MODEL_DIR = BASE_DIR / "models"
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-secret")
 DEBUG = os.getenv("DEBUG", "0") == "1"
@@ -75,6 +76,12 @@ DATABASES = {
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/1")
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.getenv("CACHE_URL", "redis://redis:6379/1"),
+    }
+}
 
 # Live weather providers. AccuWeather is the primary provider; IMD is the fallback.
 WEATHER_PROVIDER_PRIORITY = [
@@ -111,3 +118,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+RISK_JSON_MODEL_PATH = os.getenv("RISK_JSON_MODEL_PATH") or str(RISK_MODEL_DIR / "flood_risk_v1.json")
+RISK_XGBOOST_MODEL_PATH = os.getenv("RISK_XGBOOST_MODEL_PATH") or None
+RISK_TERRAIN_SOURCE = os.getenv("RISK_TERRAIN_SOURCE", "unconfigured")
