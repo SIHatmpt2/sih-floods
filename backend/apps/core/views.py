@@ -13,50 +13,10 @@ from services.risk_service import RiskService
 from services.weather_service import WeatherService
 from apps.risk.services.rainfall import rainfall_features
 from .serializers import CoordinateQuerySerializer, NotificationRecordSerializer, UserLocationSerializer
+from .location_data import EVENT_ID_BY_LOCATION, LOCATIONS
 
 service = CoreService()
 
-LOCATIONS = {
-    "location1": {"name": "Bijoypur, Diyun Circle, Changlang, Arunachal Pradesh, India", "lat": 27.95, "lng": 96.15},
-    "location2": {"name": "Daporijo, Upper Subansiri, Arunachal Pradesh, India", "lat": 27.9833, "lng": 94.2167},
-    "location3": {"name": "Namsai, Arunachal Pradesh, India", "lat": 27.67, "lng": 95.86},
-    "location4": {"name": "Pasighat, East Siang, Arunachal Pradesh, India", "lat": 28.0667, "lng": 95.3269},
-    "location5": {"name": "Yazali, Keyi Panyor, Arunachal Pradesh, India", "lat": 27.40318, "lng": 93.74447},
-    "location6": {"name": "Dibrugarh, Assam, India", "lat": 27.4728, "lng": 94.912},
-    "location7": {"name": "Dikhowmukh, Sivasagar, Assam, India", "lat": 27.0001, "lng": 94.4647},
-    "location8": {"name": "Guwahati, Kamrup Metropolitan, Assam, India", "lat": 26.1445, "lng": 91.7362},
-    "location9": {"name": "Hailakandi, Assam, India", "lat": 24.6833, "lng": 92.5667},
-    "location10": {"name": "Silchar, Cachar, Assam, India", "lat": 24.8333, "lng": 92.7789},
-    "location11": {"name": "Sivasagar, Assam, India", "lat": 26.9843, "lng": 94.637},
-    "location12": {"name": "Boh Valley, Shahpur, Kangra, Himachal Pradesh, India", "lat": 32.15, "lng": 76.18},
-    "location13": {"name": "Cholling, Kinnaur, Himachal Pradesh, India", "lat": 31.5833, "lng": 78.1333},
-    "location14": {"name": "Kullu, Himachal Pradesh, India", "lat": 31.9584, "lng": 77.1089},
-    "location15": {"name": "Mandi, Himachal Pradesh, India", "lat": 31.5892, "lng": 76.9182},
-    "location16": {"name": "Mastrang, Sangla Valley, Kinnaur, Himachal Pradesh, India", "lat": 31.35, "lng": 78.25},
-    "location17": {"name": "Nahan, Sirmaur, Himachal Pradesh, India", "lat": 30.558, "lng": 77.296},
-    "location18": {"name": "Samej Village, Rampur, Himachal Pradesh, India", "lat": 31.31, "lng": 77.64},
-    "location19": {"name": "Chisoti, Paddar, Kishtwar, Jammu & Kashmir, India", "lat": 33.43, "lng": 76.78},
-    "location20": {"name": "Kathua, Jammu & Kashmir, India", "lat": 32.3867, "lng": 75.5189},
-    "location21": {"name": "Pahalgam, Anantnag, Jammu & Kashmir, India", "lat": 34.0161, "lng": 75.315},
-    "location22": {"name": "Surjan Morha, Kathua, Jammu & Kashmir, India", "lat": 32.62, "lng": 75.56},
-    "location23": {"name": "Imphal, Manipur, India", "lat": 24.817, "lng": 93.9368},
-    "location24": {"name": "Tupul, Noney, Manipur, India", "lat": 24.805, "lng": 93.672},
-    "location25": {"name": "Nongpoh, Ri-Bhoi, Meghalaya, India", "lat": 25.9, "lng": 91.88},
-    "location26": {"name": "Sohra, East Khasi Hills, Meghalaya, India", "lat": 25.2677, "lng": 91.7323},
-    "location27": {"name": "Tura, West Garo Hills, Meghalaya, India", "lat": 25.5144, "lng": 90.2038},
-    "location28": {"name": "Aizawl, Mizoram, India", "lat": 23.7271, "lng": 92.7176},
-    "location29": {"name": "Chümoukedima, Nagaland, India", "lat": 25.86, "lng": 93.72},
-    "location30": {"name": "Chungthang, Mangan, Sikkim, India", "lat": 27.6037, "lng": 88.6433},
-    "location31": {"name": "Gangtok, Sikkim, India", "lat": 27.3389, "lng": 88.6065},
-    "location32": {"name": "Mangan, Sikkim, India", "lat": 27.5096, "lng": 88.5364},
-    "location33": {"name": "Agartala, West Tripura, Tripura, India", "lat": 23.8315, "lng": 91.2868},
-    "location34": {"name": "Belonia, South Tripura, Tripura, India", "lat": 23.25, "lng": 91.45},
-    "location35": {"name": "Dehradun, Uttarakhand, India", "lat": 30.3165, "lng": 78.0322},
-    "location36": {"name": "Dharali, Uttarkashi, Uttarakhand, India", "lat": 31.04, "lng": 78.74},
-    "location37": {"name": "Gopeshwar, Chamoli, Uttarakhand, India", "lat": 30.404, "lng": 79.32},
-    "location38": {"name": "Sonprayag, Rudraprayag, Uttarakhand, India", "lat": 30.64, "lng": 79.07},
-    "location39": {"name": "Syanachatti, Uttarkashi, Uttarakhand, India", "lat": 30.98, "lng": 78.47},
-}
 
 MONSOON_STATUS_BY_STATE = {
     "Arunachal Pradesh": "Yes",
@@ -76,21 +36,6 @@ MONSOON_STATUS_BY_STATE = {
 # Static historical event data used only by the non-Core/Risk intelligence tiles.
 # Each website location is explicitly tied to its corresponding Event ID so that
 # matching does not depend on punctuation/spelling differences in the CSV Location field.
-EVENT_ID_BY_LOCATION = {
-    "location1": "AR24-016", "location2": "AR25-009", "location3": "AR22-030",
-    "location4": "AR23-022", "location5": "AR26-001", "location6": "AS23-023",
-    "location7": "AS26-006", "location8": "AS24-015", "location9": "AS25-008",
-    "location10": "AS22-029", "location11": "AS26-005", "location12": "HP26-004",
-    "location13": "HP26-002", "location14": "HP23-025", "location15": "HP25-012",
-    "location16": "HP26-003", "location17": "HP22-034", "location18": "HP24-021",
-    "location19": "JK25-013", "location20": "JK25-014", "location21": "JK22-036",
-    "location22": "JK23-028", "location23": "MN24-018", "location24": "MN22-032",
-    "location25": "MG22-031", "location26": "MG25-010", "location27": "MG23-024",
-    "location28": "MZ22-037", "location29": "NL22-038", "location30": "SK22-033",
-    "location31": "SK23-027", "location32": "SK24-017", "location33": "TR24-019",
-    "location34": "TR22-039", "location35": "UK23-026", "location36": "UK25-011",
-    "location37": "UK22-035", "location38": "UK24-020", "location39": "UK26-007",
-}
 TILE_COLUMNS = {
     "slope": "Slope(In degrees)",
     "river_distance": "River distance(metres)",
