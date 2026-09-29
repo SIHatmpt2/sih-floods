@@ -2,7 +2,7 @@ from io import StringIO
 from tempfile import NamedTemporaryFile
 from django.core.management import call_command
 from django.test import TestCase
-from backend.apps.risk.models import FloodEvent
+from apps.risk.models import FloodEvent
 
 
 class ImportFloodsCommandTests(TestCase):
