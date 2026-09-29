@@ -177,11 +177,11 @@ def get_event_tile_data(location_key):
 
     comments = {
         "slope": _comment(
-            "Very steep terrain can accelerate runoff and increase slope-failure susceptibility during intense rain."
+            "This very steep terrain can accelerate runoff and increase slope-failure susceptibility during intense rain."
             if slope_high
-            else "Steep terrain can accelerate runoff during intense rain."
+            else "This steep terrain can accelerate runoff during intense rain."
             if slope_medium
-            else "Gentler terrain generally produces slower surface runoff.",
+            else "This terrain generally produces slower surface runoff.",
             "negative" if slope_high or slope_medium else "positive",
         ),
         "river_distance": _comment(
@@ -209,7 +209,11 @@ def get_event_tile_data(location_key):
             "negative" if soil_moisture_very_very_high or soil_moisture_very_high or soil_moisture_high else "positive",
         ),
         "carbon_emissions": _comment(
-            "This is a long-term environmental-pressure indicator, not a direct short-term flood trigger."
+            "Higher carbon emissions indicate greater long-term environmental pressure in this area."
+            if carbon_high
+            else "Moderate carbon emissions indicate some long-term environmental pressure in this area."
+            if carbon_medium
+            else "Lower carbon emissions indicate lower long-term environmental pressure in this area."
             if carbon_numeric is not None
             else "Carbon-emissions information is unavailable.",
             "negative" if carbon_high or carbon_medium else "positive" if carbon_numeric is not None else "neutral",
@@ -295,17 +299,21 @@ def redirect_result(request):
     risk_score = _numeric_value(risk.get("risk_score"))
     risk_level_text = str(risk.get("risk_level") or "").lower()
     risk_comment = _comment(
-        "Current indicators point to elevated modelled flood potential."
+        "There is a higher risk of flooding at this location."
         if risk_score is not None and risk_score >= 70
-        else "Current indicators point to lower modelled flood potential."
+        else "There is a lower risk of flooding at this location."
         if risk_score is not None and risk_score < 40
-        else "Current indicators warrant continued monitoring for flood escalation."
+        else "There is a moderate risk of flooding at this location."
         if risk_score is not None
         else "Risk score information is unavailable.",
         "negative" if risk_score is not None and risk_score >= 70 else "positive" if risk_score is not None and risk_score < 40 else "neutral",
     )
     risk_level_comment = _comment(
-        "Qualitative summary of the combined model output."
+        "The current flood-risk level is high at this location."
+        if any(word in risk_level_text for word in ("high", "severe", "very high"))
+        else "The current flood-risk level is low at this location."
+        if any(word in risk_level_text for word in ("low", "safe"))
+        else "The current flood-risk level is moderate at this location."
         if risk.get("risk_level")
         else "Risk-level information is unavailable.",
         "negative" if any(word in risk_level_text for word in ("high", "severe", "very high")) else "positive" if any(word in risk_level_text for word in ("low", "safe")) else "neutral",
@@ -324,7 +332,7 @@ def redirect_result(request):
     )
     temperature_numeric = _numeric_value(weather_outputs["temperature_c"])
     temperature_comment = _comment(
-        "Temperature alone is not a primary short-term flood trigger."
+        "Current temperature can influence atmospheric instability, but rainfall remains the stronger immediate flood driver."
         if temperature_numeric is not None
         else "Temperature information is unavailable."
     )
