@@ -110,8 +110,9 @@ def river_features(latitude, longitude):
     }
 
     now = timezone.now()
+    parquet_result = _river_features_from_parquet(latitude, longitude, now)
     if not stations:
-        return _river_features_from_parquet(latitude, longitude, now) or empty
+        return parquet_result or empty
     latest = None
     station = None
 
@@ -141,7 +142,7 @@ def river_features(latitude, longitude):
             .first()
         )
 
-    return {
+    db_result = {
         "water_level_m": latest.water_level_m,
         "discharge_m3s": latest.discharge_m3s,
         "water_level_change": (
@@ -158,4 +159,9 @@ def river_features(latitude, longitude):
             and previous.discharge_m3s is not None
             else None
         ),
+        "observed_at": latest.timestamp,
+        "source": "weather_observation",
     }
+    if parquet_result and parquet_result.get("observed_at") and parquet_result["observed_at"] > latest.timestamp:
+        return parquet_result
+    return db_result
