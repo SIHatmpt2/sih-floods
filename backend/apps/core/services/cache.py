@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Any
 from django.core.cache import cache
 
-DASHBOARD_CACHE_TTL = 900
+DASHBOARD_CACHE_TTL = 60
 
 
 def dashboard_key(user_id: int, latitude: float, longitude: float) -> str:
