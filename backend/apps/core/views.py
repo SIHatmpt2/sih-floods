@@ -203,7 +203,7 @@ def get_event_tile_data(location_key):
             else "The site is farther from the river, so direct river-overflow exposure is generally lower."
             if river_distance_min is not None
             else "River proximity information is unavailable.",
-            "negative" if river_distance_min is not None and river_distance_min <= 500 else "neutral" if river_distance_min is not None and river_distance_min <= 1500 else "positive" if river_distance_min is not None else "neutral",
+            "negative" if river_distance_min is not None and river_distance_min <= 500 else "neutral" if river_distance_min is not None and river_distance_min <= 1000 else "positive" if river_distance_min is not None else "neutral",
         ),
         "soil_texture": _comment(
             soil_texture_comment,
