@@ -129,7 +129,7 @@ def river_features(latitude, longitude):
             break
 
     if latest is None:
-        return empty
+        return parquet_result or empty
 
     previous = None
     if isinstance(latest.timestamp, datetime):
