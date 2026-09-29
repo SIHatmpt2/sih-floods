@@ -122,7 +122,14 @@ def get_event_tile_data(location_key):
     carbon_high = carbon_numeric is not None and carbon_numeric >= 30000
     carbon_medium = carbon_numeric is not None and 10000 < carbon_numeric < 30000
 
-    river_numeric = _numeric_value(row.get(TILE_COLUMNS["river_distance"], ""))
+    river_distance_text = str(row.get(TILE_COLUMNS["river_distance"], "")).strip()
+    river_distance_numbers = [
+        float(value.replace(",", ""))
+        for value in re.findall(r"\d[\d,]*(?:\.\d+)?", river_distance_text)
+    ]
+    river_distance_min = min(river_distance_numbers) if river_distance_numbers else None
+    river_distance_max = max(river_distance_numbers) if river_distance_numbers else None
+    river_numeric = river_distance_min
     forest_cover_numeric = _numeric_value(row.get(TILE_COLUMNS["forest_cover"], ""))
     forest_density_numeric = _numeric_value(row.get(TILE_COLUMNS["forest_density"], ""))
     soil_texture = str(row.get(TILE_COLUMNS["soil_texture"], "")).strip()
@@ -185,16 +192,18 @@ def get_event_tile_data(location_key):
             "negative" if slope_high or slope_medium else "positive",
         ),
         "river_distance": _comment(
-            "The site is very close to the river, so overbank flooding and rapid channel response can pose direct exposure."
-            if river_numeric is not None and river_numeric <= 100
-            else "The site is close to the river, so river overflow can increase local flood exposure."
-            if river_numeric is not None and river_numeric <= 500
-            else "The site has moderate separation from the river, reducing direct river-overflow exposure."
-            if river_numeric is not None and river_numeric <= 1000
-            else "The site is relatively far from the river, reducing direct river-overflow exposure."
-            if river_numeric is not None
+            "The site is very close to the river, so direct river-overflow exposure can be high."
+            if river_distance_min is not None and river_distance_max <= 500
+            else "The site is within the close river-proximity zone, so river overflow can increase local flood exposure."
+            if river_distance_min is not None and river_distance_min <= 500
+            else "The site is within a moderate river-distance zone, so direct river-overflow exposure is reduced compared with closer locations."
+            if river_distance_min is not None and river_distance_min <= 1000
+            else "The site is within a transitional 1,000–1,500 m zone, so direct river-overflow exposure is lower than at closer locations."
+            if river_distance_min is not None and river_distance_min <= 1500
+            else "The site is farther from the river, so direct river-overflow exposure is generally lower."
+            if river_distance_min is not None
             else "River proximity information is unavailable.",
-            "negative" if river_numeric is not None and river_numeric <= 500 else "neutral" if river_numeric is not None and river_numeric <= 1000 else "positive" if river_numeric is not None else "neutral",
+            "negative" if river_distance_min is not None and river_distance_min <= 500 else "neutral" if river_distance_min is not None and river_distance_min <= 1500 else "positive" if river_distance_min is not None else "neutral",
         ),
         "soil_texture": _comment(
             soil_texture_comment,
