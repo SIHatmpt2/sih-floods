@@ -40,8 +40,10 @@
     <section class="details-section">
         <div class="details-title">Location Intelligence</div>
         <div class="live-updated">
-            Live data · Updated
+            Weather observation
             {{ weather.observed_at|timezone:"Asia/Kolkata"|default_if_none:"—" }}
+            {% if weather.data_quality.stale %} · Stale fallback{% endif %}
+            {% if weather.data_quality.source %} · {{ weather.data_quality.source }}{% endif %}
         </div>
 
         <div class="details-categories">
