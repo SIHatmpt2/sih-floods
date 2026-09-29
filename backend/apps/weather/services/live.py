@@ -56,8 +56,10 @@ def _accuweather(client, latitude, longitude, api_key):
     row = rows[0]
     metric = (row.get("Temperature") or {}).get("Metric") or {}
     precipitation = row.get("PrecipitationSummary") or {}
+    past_1h = precipitation.get("PastHour") or {}
     past_24h = precipitation.get("Past24Hours") or {}
-    rain_metric = past_24h.get("Metric") or {}
+    rain_1h_metric = past_1h.get("Metric") or {}
+    rain_24h_metric = past_24h.get("Metric") or {}
     position = location.get("GeoPosition") or {}
 
     return {
@@ -69,7 +71,8 @@ def _accuweather(client, latitude, longitude, api_key):
         "latitude": _number(position.get("Latitude")) or latitude,
         "longitude": _number(position.get("Longitude")) or longitude,
         "timestamp": _parse_time(row.get("LocalObservationDateTime")),
-        "rainfall_mm": _number(rain_metric.get("Value")),
+        "rainfall_mm": _number(rain_1h_metric.get("Value")),
+        "rainfall_24h_mm": _number(rain_24h_metric.get("Value")),
         "temperature_c": _number(metric.get("Value")),
         "humidity": _number(row.get("RelativeHumidity")),
         "water_level_m": None,
@@ -110,7 +113,8 @@ def _imd(client, latitude, longitude, api_key):
         "latitude": lat,
         "longitude": lon,
         "timestamp": _parse_time(timestamp),
-        "rainfall_mm": _number(row.get("rainfall") or row.get("Last 24 hrs Rainfall")),
+        "rainfall_mm": _number(row.get("rainfall_1h") or row.get("Last 1 hr Rainfall") or row.get("rainfall") or row.get("Last 24 hrs Rainfall")),
+        "rainfall_24h_mm": _number(row.get("rainfall_24h") or row.get("Last 24 hrs Rainfall") or row.get("rainfall")),
         "temperature_c": _number(row.get("temperature") or row.get("Temperature")),
         "humidity": _number(row.get("humidity") or row.get("Humidity")),
         "water_level_m": None,
