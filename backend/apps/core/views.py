@@ -335,7 +335,7 @@ def redirect_result(request):
         "Current temperature can influence atmospheric instability, but rainfall remains the stronger immediate flood driver."
         if temperature_numeric is not None
         else "Temperature information is unavailable.",
-        "neutral" if temperature_numeric is not None else "neutral",
+        "positive" if temperature_numeric is not None else "neutral",
     )
     humidity_comment = _comment(
         "High atmospheric moisture can support heavy-rainfall development."
