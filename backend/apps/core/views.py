@@ -77,21 +77,20 @@ MONSOON_STATUS_BY_STATE = {
 # Each website location is explicitly tied to its corresponding Event ID so that
 # matching does not depend on punctuation/spelling differences in the CSV Location field.
 EVENT_ID_BY_LOCATION = {
-    "location1": "AR26-001", "location2": "HP26-002", "location3": "HP26-003",
-    "location4": "HP26-004", "location5": "AS26-005", "location6": "AS26-006",
-    "location7": "UK26-007", "location8": "AS25-008", "location9": "AR25-009",
-    "location10": "MG25-010", "location11": "UK25-011", "location12": "HP25-012",
-    "location13": "JK25-013", "location14": "JK25-014", "location15": "AS24-015",
-    "location16": "AR24-016", "location17": "SK24-017", "location18": "MN24-018",
-    "location19": "TR24-019", "location20": "UK24-020", "location21": "HP24-021",
-    "location22": "AR23-022", "location23": "AS23-023", "location24": "MG23-024",
-    "location25": "HP23-025", "location26": "UK23-026", "location27": "SK23-027",
-    "location28": "JK23-028", "location29": "AS22-029", "location30": "AR22-030",
-    "location31": "MG22-031", "location32": "MN22-032", "location33": "SK22-033",
-    "location34": "HP22-034", "location35": "UK22-035", "location36": "JK22-036",
-    "location37": "MZ22-037", "location38": "NL22-038", "location39": "TR22-039",
+    "location1": "AR24-016", "location2": "AR25-009", "location3": "AR22-030",
+    "location4": "AR23-022", "location5": "AR26-001", "location6": "AS23-023",
+    "location7": "AS26-006", "location8": "AS24-015", "location9": "AS25-008",
+    "location10": "AS22-029", "location11": "AS26-005", "location12": "HP26-004",
+    "location13": "HP26-002", "location14": "HP23-025", "location15": "HP25-012",
+    "location16": "HP26-003", "location17": "HP22-034", "location18": "HP24-021",
+    "location19": "JK25-013", "location20": "JK25-014", "location21": "JK22-036",
+    "location22": "JK23-028", "location23": "MN24-018", "location24": "MN22-032",
+    "location25": "MG22-031", "location26": "MG25-010", "location27": "MG23-024",
+    "location28": "MZ22-037", "location29": "NL22-038", "location30": "SK22-033",
+    "location31": "SK23-027", "location32": "SK24-017", "location33": "TR24-019",
+    "location34": "TR22-039", "location35": "UK23-026", "location36": "UK25-011",
+    "location37": "UK22-035", "location38": "UK24-020", "location39": "UK26-007",
 }
-
 TILE_COLUMNS = {
     "slope": "Slope(In degrees)",
     "river_distance": "River distance(metres)",
