@@ -195,15 +195,15 @@ def get_event_tile_data(location_key):
             "The site is very close to the river, so direct river-overflow exposure can be high."
             if river_distance_min is not None and river_distance_max <= 500
             else "The site is within the close river-proximity zone, so river overflow can increase local flood exposure."
-            if river_distance_min is not None and river_distance_min <= 500
+            if river_distance_min is not None and river_distance_max <= 500
             else "The site is within a moderate river-distance zone, so direct river-overflow exposure is reduced compared with closer locations."
-            if river_distance_min is not None and river_distance_min <= 1000
-            else "The site is within a transitional 1,000–1,500 m zone, so direct river-overflow exposure is lower than at closer locations."
-            if river_distance_min is not None and river_distance_min <= 1500
+            if river_distance_min is not None and river_distance_max <= 1000
+            else "The site is within a 1,000–1,500 m zone, so direct river-overflow exposure is lower than at closer locations."
+            if river_distance_min is not None and river_distance_max <= 1500
             else "The site is farther from the river, so direct river-overflow exposure is generally lower."
             if river_distance_min is not None
             else "River proximity information is unavailable.",
-            "negative" if river_distance_min is not None and river_distance_min <= 500 else "neutral" if river_distance_min is not None and river_distance_min <= 1000 else "positive" if river_distance_min is not None else "neutral",
+            "negative" if river_distance_min is not None and river_distance_max <= 500 else "neutral" if river_distance_min is not None and river_distance_max <= 1000 else "positive" if river_distance_min is not None else "neutral",
         ),
         "soil_texture": _comment(
             soil_texture_comment,
