@@ -127,18 +127,6 @@
                                 <div class="tile-comment {{ event_tile_data.comments.river_distance.tone }}">{{ event_tile_data.comments.river_distance.text }}</div>
                                 <div class="info-subtext">Reference event dataset</div>
                             </div>
-                <div class="info-card">
-                                <div class="info-label">Water Level</div>
-                                <div class="info-value">{{ risk.features.water_level_m|default_if_none:"—" }}{% if risk.features.water_level_m != None %} m{% endif %}</div>
-                                <div class="tile-comment neutral">Latest nearby river observation when available</div>
-                                <div class="info-subtext">CWC / river observation</div>
-                            </div>
-                <div class="info-card">
-                                <div class="info-label">Discharge</div>
-                                <div class="info-value">{{ risk.features.discharge_m3s|default_if_none:"—" }}{% if risk.features.discharge_m3s != None %} m³/s{% endif %}</div>
-                                <div class="tile-comment neutral">Latest nearby discharge observation when available</div>
-                                <div class="info-subtext">CWC / river observation</div>
-                            </div>
             </div>
         </div>
 
