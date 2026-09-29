@@ -52,11 +52,15 @@ class WeatherService:
         }
 
     def _store_live(self, row: dict) -> dict:
+        existing = WeatherStation.objects.filter(
+            provider=row["provider"], station_id=row["station_id"]
+        ).first()
         station, _ = WeatherStation.objects.update_or_create(
             provider=row["provider"], station_id=row["station_id"],
             defaults={
-                "name": row["station_name"], "state": row.get("state", ""),
-                "district": row.get("district", ""),
+                "name": row["station_name"],
+                "state": row.get("state") or (existing.state if existing else ""),
+                "district": row.get("district") or (existing.district if existing else ""),
                 "location": Point(row["longitude"], row["latitude"], srid=4326),
                 "active": True,
             },
