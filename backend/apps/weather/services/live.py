@@ -38,7 +38,6 @@ def _accuweather(client, latitude, longitude, api_key):
         f"{ACCUWEATHER_BASE}/locations/v1/cities/geoposition/search",
         params={"q": f"{latitude:.4f},{longitude:.4f}", "language": "en-us", "toplevel": "true"},
         api_key=api_key,
-        api_key_param="apikey",
     )
     key = location.get("Key") if isinstance(location, dict) else None
     if not key:
