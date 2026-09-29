@@ -37,7 +37,7 @@ def _terrain_component(features):
     elevation = features.get("elevation_m")
     if slope is None and elevation is None:
         return None
-    slope_score = linear_score(30 - float(slope), 0, 30) if slope is not None else None
+    slope_score = linear_score(float(slope), 0, 60) if slope is not None else None
     low_elevation_score = linear_score(500 - float(elevation), 0, 500) if elevation is not None else None
     vals = [v for v in (slope_score, low_elevation_score) if v is not None]
     return sum(vals) / len(vals) if vals else None
