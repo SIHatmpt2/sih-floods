@@ -129,5 +129,6 @@ class WeatherService:
         since = timezone.now() - timedelta(days=days)
         rows = station.observations.filter(timestamp__gte=since).order_by("-timestamp")[:2000]
         return [{"observed_at": row.timestamp, "rainfall_mm": row.rainfall_mm,
+                 "rainfall_24h_mm": row.rainfall_24h_mm if row.rainfall_24h_mm is not None else row.rainfall_mm,
                  "temperature_c": row.temperature_c, "humidity": row.humidity,
                  "water_level_m": row.water_level_m, "discharge_m3s": row.discharge_m3s} for row in rows]
