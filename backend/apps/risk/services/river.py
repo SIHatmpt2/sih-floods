@@ -76,6 +76,8 @@ def _river_features_from_parquet(latitude, longitude, now):
     lat_delta = frame['latitude'] - float(latitude)
     lon_delta = (frame['longitude'] - float(longitude)) * math.cos(math.radians(float(latitude)))
     frame['_distance2'] = lat_delta * lat_delta + lon_delta * lon_delta
+    max_distance2 = (75.0 / 111.0) ** 2
+    frame = frame[frame['_distance2'] <= max_distance2]
     nearest = frame.sort_values('_distance2').groupby('station_id', sort=False).head(1).sort_values('_distance2').head(5)
     if nearest.empty:
         return None
