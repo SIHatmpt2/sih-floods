@@ -2,7 +2,7 @@ name: Backend CI
 
 on:
   push:
-    branches: [main, django-frontend-migration]
+    branches: [main, django-frontend-migration, msih2]
   pull_request:
     branches: [main]
     paths:
