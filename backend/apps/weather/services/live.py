@@ -113,7 +113,7 @@ def _imd(client, latitude, longitude, api_key):
         "latitude": lat,
         "longitude": lon,
         "timestamp": _parse_time(timestamp),
-        "rainfall_mm": _number(row.get("rainfall_1h") or row.get("Last 1 hr Rainfall") or row.get("rainfall") or row.get("Last 24 hrs Rainfall")),
+        "rainfall_mm": _number(row.get("rainfall_1h") or row.get("Last 1 hr Rainfall")),
         "rainfall_24h_mm": _number(row.get("rainfall_24h") or row.get("Last 24 hrs Rainfall") or row.get("rainfall")),
         "temperature_c": _number(row.get("temperature") or row.get("Temperature")),
         "humidity": _number(row.get("humidity") or row.get("Humidity")),
