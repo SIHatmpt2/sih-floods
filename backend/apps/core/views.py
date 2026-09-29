@@ -133,10 +133,12 @@ def get_event_tile_data(location_key):
     soil_texture_text = soil_texture.lower()
     if "rocky" in soil_texture_text or "very shallow" in soil_texture_text:
         soil_texture_comment = "Shallow rocky soil has limited storage capacity, so intense rain can shift quickly to runoff."
-    elif "clay" in soil_texture_text and "sand" not in soil_texture_text:
-        soil_texture_comment = "Clay-rich soil drains slowly, so prolonged rain can promote saturation and surface runoff."
+    elif "clay" in soil_texture_text:
+        soil_texture_comment = "Clay-rich soil can slow infiltration as it wets, increasing runoff once storage fills."
     elif "silt" in soil_texture_text:
         soil_texture_comment = "Silt-rich soil can become runoff-prone once rainfall exceeds its infiltration capacity."
+    elif "sand" in soil_texture_text:
+        soil_texture_comment = "Sandy soil can infiltrate quickly, but intense rain can exceed its infiltration capacity."
     elif soil_texture:
         soil_texture_comment = "The soil can absorb rainfall, but runoff increases once rainfall exceeds infiltration capacity."
     else:
@@ -157,7 +159,9 @@ def get_event_tile_data(location_key):
         negative_terms=(
             "clearing", "cutting", "fragmentation", "blasting", "logging", "degraded",
             "thinning", "removal", "slicing", "mining", "quarrying", "felling",
-            "human-induced", "loss of", "stripped",
+            "human-induced", "loss of", "stripped", "contributing factor",
+            "compounding factor", "accelerating factor", "amplifying", "runoff velocities",
+            "vegetation", "tree-clearing",
         ),
         positive_terms=("retained", "restored", "reforestation", "regenerated", "intact"),
     )
@@ -190,7 +194,7 @@ def get_event_tile_data(location_key):
         ),
         "soil_texture": _comment(
             soil_texture_comment,
-            "negative" if ("rocky" in soil_texture_text or "very shallow" in soil_texture_text or ("clay" in soil_texture_text and "sand" not in soil_texture_text)) else "neutral" if soil_texture else "neutral",
+            "negative" if ("rocky" in soil_texture_text or "very shallow" in soil_texture_text or "clay" in soil_texture_text) else "positive" if "sand" in soil_texture_text else "neutral",
         ),
         "soil_status": _comment(
             soil_status_comment,
@@ -301,7 +305,7 @@ def redirect_result(request):
         "negative" if risk_score is not None and risk_score >= 70 else "positive" if risk_score is not None and risk_score < 40 else "neutral",
     )
     risk_level_comment = _comment(
-        "The current category reflects the model's combined risk indicators."
+        "Qualitative summary of the combined model output."
         if risk.get("risk_level")
         else "Risk-level information is unavailable.",
         "negative" if any(word in risk_level_text for word in ("high", "severe", "very high")) else "positive" if any(word in risk_level_text for word in ("low", "safe")) else "neutral",
@@ -311,9 +315,9 @@ def redirect_result(request):
     rainfall_comment = _comment(
         "Recent rainfall can rapidly increase runoff and flash-flood potential."
         if rainfall_numeric is not None and rainfall_numeric >= 50
-        else "Recent rainfall adds short-term runoff pressure; monitor further accumulation."
+        else "Recent rainfall adds short-term runoff pressure; further accumulation could increase risk."
         if rainfall_numeric is not None and rainfall_numeric >= 20
-        else "Little recent rainfall is adding to immediate runoff pressure."
+        else "Recent rainfall is contributing little to immediate runoff pressure."
         if rainfall_numeric is not None
         else "Rainfall information is unavailable.",
         "negative" if rainfall_numeric is not None and rainfall_numeric >= 50 else "neutral" if rainfall_numeric is not None and rainfall_numeric >= 20 else "positive" if rainfall_numeric is not None else "neutral",
@@ -325,12 +329,14 @@ def redirect_result(request):
         else "Temperature information is unavailable."
     )
     humidity_comment = _comment(
-        "Higher atmospheric moisture can support heavy-rainfall development."
+        "High atmospheric moisture can support heavy-rainfall development."
         if humidity_numeric is not None and humidity_numeric > 80
-        else "Humidity alone provides limited evidence of immediate flood development."
+        else "Moist atmospheric conditions can support rainfall, but humidity alone does not indicate flooding."
+        if humidity_numeric is not None and humidity_numeric >= 60
+        else "Humidity alone provides limited evidence of immediate heavy-rainfall development."
         if humidity_numeric is not None
         else "Humidity information is unavailable.",
-        "negative" if humidity_numeric is not None and humidity_numeric > 80 else "positive" if humidity_numeric is not None else "neutral",
+        "negative" if humidity_numeric is not None and humidity_numeric > 80 else "neutral" if humidity_numeric is not None and humidity_numeric >= 60 else "positive" if humidity_numeric is not None else "neutral",
     )
     state = location["name"].split(",")[-2].strip()
     monsoon_status = MONSOON_STATUS_BY_STATE.get(state, "No")
