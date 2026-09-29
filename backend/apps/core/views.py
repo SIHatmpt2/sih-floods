@@ -69,9 +69,23 @@ def _numeric_value(value):
 
 def _text_tone(value):
     text = str(value or "").lower()
-    if any(word in text for word in ("high", "severe", "heavy", "significant", "major", "poor")):
+    if any(word in text for word in (
+        "saturated", "waterlogged", "high", "severe", "heavy",
+        "significant", "major", "poor",
+    )):
         return "negative"
-    if any(word in text for word in ("low", "minimal", "normal", "good", "stable", "healthy", "dense")):
+    if any(word in text for word in (
+        "low", "minimal", "normal", "good", "stable", "healthy", "dense",
+    )):
+        return "positive"
+    return "neutral"
+
+
+def _impact_tone(value, negative_terms, positive_terms=()):
+    text = str(value or "").lower()
+    if any(term in text for term in negative_terms):
+        return "negative"
+    if any(term in text for term in positive_terms):
         return "positive"
     return "neutral"
 
@@ -111,20 +125,127 @@ def get_event_tile_data(location_key):
     river_numeric = _numeric_value(row.get(TILE_COLUMNS["river_distance"], ""))
     forest_cover_numeric = _numeric_value(row.get(TILE_COLUMNS["forest_cover"], ""))
     forest_density_numeric = _numeric_value(row.get(TILE_COLUMNS["forest_density"], ""))
-    soil_status = row.get(TILE_COLUMNS["soil_status"], "")
-    deforestation = row.get(TILE_COLUMNS["deforestation"], "")
-    encroachment = row.get(TILE_COLUMNS["encroachment"], "")
+    soil_texture = str(row.get(TILE_COLUMNS["soil_texture"], "")).strip()
+    soil_status = str(row.get(TILE_COLUMNS["soil_status"], "")).strip()
+    deforestation = str(row.get(TILE_COLUMNS["deforestation"], "")).strip()
+    encroachment = str(row.get(TILE_COLUMNS["encroachment"], "")).strip()
+
+    soil_texture_text = soil_texture.lower()
+    if "rocky" in soil_texture_text or "very shallow" in soil_texture_text:
+        soil_texture_comment = "Shallow rocky soil has limited storage capacity, so intense rain can shift quickly to runoff."
+    elif "clay" in soil_texture_text and "sand" not in soil_texture_text:
+        soil_texture_comment = "Clay-rich soil drains slowly, so prolonged rain can promote saturation and surface runoff."
+    elif "silt" in soil_texture_text:
+        soil_texture_comment = "Silt-rich soil can become runoff-prone once rainfall exceeds its infiltration capacity."
+    elif soil_texture:
+        soil_texture_comment = "The soil can absorb rainfall, but runoff increases once rainfall exceeds infiltration capacity."
+    else:
+        soil_texture_comment = "Soil texture information is unavailable."
+
+    soil_status_text = soil_status.lower()
+    if "waterlogged" in soil_status_text:
+        soil_status_comment = "Waterlogged ground has little infiltration capacity, increasing standing water and runoff persistence."
+    elif "saturated" in soil_status_text:
+        soil_status_comment = "Saturated soil has little remaining storage, so additional rain is more likely to become runoff."
+    elif "wet" in soil_status_text:
+        soil_status_comment = "Wet topsoil retains some storage, but intense rain can quickly increase runoff."
+    else:
+        soil_status_comment = "The recorded soil condition provides limited evidence about current runoff response."
+
+    deforestation_tone = _impact_tone(
+        deforestation,
+        negative_terms=(
+            "clearing", "cutting", "fragmentation", "blasting", "logging", "degraded",
+            "thinning", "removal", "slicing", "mining", "quarrying", "felling",
+            "human-induced", "loss of", "stripped",
+        ),
+        positive_terms=("retained", "restored", "reforestation", "regenerated", "intact"),
+    )
+    encroachment_tone = _impact_tone(
+        encroachment,
+        negative_terms=(
+            "high", "critical", "extreme", "directly", "adjacent", "built", "constructed",
+            "encroached", "settlements", "structures", "expansion", "floodplain",
+            "riverbank", "drainage", "channel", "stream", "corridor", "camp", "hotels",
+        ),
+        positive_terms=("limited", "minimal", "none", "absent", "setback"),
+    )
+
     comments = {
-        "slope": _comment(f"{slope_value} slope — steep terrain can rapidly increase surface runoff" if slope_high else f"{slope_value} slope — terrain can increase runoff during heavy rain" if slope_medium else f"{slope_value} slope — lower slope-driven runoff potential", "negative" if slope_high or slope_medium else "positive"),
-        "river_distance": _comment(f"{river_numeric:g} m from river — direct flood exposure is elevated" if river_numeric is not None and river_numeric < 500 else f"{river_numeric:g} m from river — direct river exposure is lower" if river_numeric is not None else "River proximity unavailable", "negative" if river_numeric is not None and river_numeric < 500 else "positive" if river_numeric is not None else "neutral"),
-        "soil_texture": _comment(f"{str(row.get(TILE_COLUMNS['soil_texture'], '')).strip()} soil texture — influences how quickly rainfall infiltrates versus becomes runoff" if str(row.get(TILE_COLUMNS["soil_texture"], "")).strip() else "Soil texture unavailable"),
-        "soil_status": _comment(f"{str(soil_status).strip()} soil status — current condition can influence runoff response" if str(soil_status).strip() else "Soil status unavailable", _text_tone(soil_status)),
-        "soil_moisture": _comment(f"{soil_moisture_range} ({soil_moisture_status}) — soil saturation can limit further rainfall infiltration" if soil_moisture_very_very_high or soil_moisture_very_high or soil_moisture_high else f"{soil_moisture_range} ({soil_moisture_status}) — greater infiltration capacity remains" if str(soil_moisture_range).strip() else "Soil moisture unavailable", "negative" if soil_moisture_very_very_high or soil_moisture_very_high or soil_moisture_high else "positive"),
-        "carbon_emissions": _comment(f"{carbon_numeric:g} tons/year — indicates higher environmental pressure but is not a direct short-term flood trigger" if carbon_high or carbon_medium else f"{carbon_numeric:g} tons/year — lower environmental pressure; not a direct short-term flood trigger" if carbon_numeric is not None else "Carbon-emissions value unavailable", "negative" if carbon_high or carbon_medium else "positive"),
-        "forest_cover": _comment(f"{forest_cover_numeric:g}% forest cover — provides stronger natural runoff buffering" if forest_cover_numeric is not None and forest_cover_numeric >= 50 else f"{forest_cover_numeric:g}% forest cover — reduced vegetation may increase surface runoff" if forest_cover_numeric is not None else "Forest-cover value unavailable", "positive" if forest_cover_numeric is not None and forest_cover_numeric >= 50 else "negative" if forest_cover_numeric is not None else "neutral"),
-        "forest_density": _comment(f"{forest_density_numeric:g} trees/km² — dense vegetation provides stronger slope protection" if forest_density_numeric is not None and forest_density_numeric >= 30000 else f"{forest_density_numeric:g} trees/km² — lower vegetation density provides less slope protection" if forest_density_numeric is not None else "Forest-density value unavailable", "positive" if forest_density_numeric is not None and forest_density_numeric >= 30000 else "negative" if forest_density_numeric is not None else "neutral"),
-        "deforestation": _comment(f"{str(deforestation).strip()} deforestation — vegetation loss can increase surface runoff" if _text_tone(deforestation) == "negative" else f"{str(deforestation).strip()} deforestation — natural vegetation cover is better retained" if _text_tone(deforestation) == "positive" else f"{str(deforestation).strip()} deforestation — runoff impact needs additional context" if str(deforestation).strip() else "Deforestation value unavailable", _text_tone(deforestation)),
-        "encroachment": _comment(f"{str(encroachment).strip()} encroachment — drainage obstruction may worsen local flooding" if _text_tone(encroachment) == "negative" else f"{str(encroachment).strip()} encroachment — drainage obstruction is likely limited" if _text_tone(encroachment) == "positive" else f"{str(encroachment).strip()} encroachment — drainage impact needs additional context" if str(encroachment).strip() else "Encroachment value unavailable", _text_tone(encroachment)),
+        "slope": _comment(
+            "Very steep terrain can accelerate runoff and increase slope-failure susceptibility during intense rain."
+            if slope_high
+            else "Steep terrain can accelerate runoff during intense rain."
+            if slope_medium
+            else "Gentler terrain generally produces slower surface runoff.",
+            "negative" if slope_high or slope_medium else "positive",
+        ),
+        "river_distance": _comment(
+            "Close river proximity increases exposure to overbank flooding and rapid channel response."
+            if river_numeric is not None and river_numeric < 500
+            else "Greater separation generally reduces direct river-flood exposure."
+            if river_numeric is not None
+            else "River proximity information is unavailable.",
+            "negative" if river_numeric is not None and river_numeric < 500 else "positive" if river_numeric is not None else "neutral",
+        ),
+        "soil_texture": _comment(
+            soil_texture_comment,
+            "negative" if ("rocky" in soil_texture_text or "very shallow" in soil_texture_text or ("clay" in soil_texture_text and "sand" not in soil_texture_text)) else "neutral" if soil_texture else "neutral",
+        ),
+        "soil_status": _comment(
+            soil_status_comment,
+            "negative" if any(term in soil_status_text for term in ("saturated", "waterlogged")) else "neutral",
+        ),
+        "soil_moisture": _comment(
+            "High soil moisture leaves less pore space for incoming rainfall, increasing rapid runoff potential."
+            if soil_moisture_very_very_high or soil_moisture_very_high or soil_moisture_high
+            else "Lower soil moisture leaves more capacity to absorb additional rainfall."
+            if str(soil_moisture_range).strip()
+            else "Soil moisture information is unavailable.",
+            "negative" if soil_moisture_very_very_high or soil_moisture_very_high or soil_moisture_high else "positive",
+        ),
+        "carbon_emissions": _comment(
+            "This is a long-term environmental-pressure indicator, not a direct short-term flood trigger."
+            if carbon_numeric is not None
+            else "Carbon-emissions information is unavailable.",
+            "negative" if carbon_high or carbon_medium else "positive" if carbon_numeric is not None else "neutral",
+        ),
+        "forest_cover": _comment(
+            "Higher forest cover can intercept rainfall and reinforce slopes, helping buffer runoff."
+            if forest_cover_numeric is not None and forest_cover_numeric >= 50
+            else "Lower forest cover provides less interception and slope reinforcement, allowing faster runoff."
+            if forest_cover_numeric is not None
+            else "Forest-cover information is unavailable.",
+            "positive" if forest_cover_numeric is not None and forest_cover_numeric >= 50 else "negative" if forest_cover_numeric is not None else "neutral",
+        ),
+        "forest_density": _comment(
+            "Dense tree cover can improve slope stability and slow surface runoff."
+            if forest_density_numeric is not None and forest_density_numeric >= 30000
+            else "Lower tree density provides less root reinforcement and rainfall interception."
+            if forest_density_numeric is not None
+            else "Forest-density information is unavailable.",
+            "positive" if forest_density_numeric is not None and forest_density_numeric >= 30000 else "negative" if forest_density_numeric is not None else "neutral",
+        ),
+        "deforestation": _comment(
+            "Vegetation loss can reduce root reinforcement and increase surface runoff."
+            if deforestation_tone == "negative"
+            else "Better vegetation retention can improve slope protection and runoff buffering."
+            if deforestation_tone == "positive"
+            else "The observation does not quantify a clear flood-response effect."
+            if deforestation
+            else "Deforestation information is unavailable.",
+            deforestation_tone,
+        ),
+        "encroachment": _comment(
+            "Construction within natural drainage corridors can obstruct flow and increase local flood exposure."
+            if encroachment_tone == "negative"
+            else "Limited encroachment leaves more natural drainage capacity."
+            if encroachment_tone == "positive"
+            else "The observation does not clearly quantify drainage obstruction."
+            if encroachment
+            else "Encroachment information is unavailable.",
+            encroachment_tone,
+        ),
     }
 
     return {
@@ -169,16 +290,55 @@ def redirect_result(request):
     event_tile_data = get_event_tile_data(location_key)
     risk_score = _numeric_value(risk.get("risk_score"))
     risk_level_text = str(risk.get("risk_level") or "").lower()
-    risk_comment = _comment(f"Risk score {risk_score:g}/100 — current conditions indicate elevated flood potential" if risk_score is not None and risk_score >= 70 else f"Risk score {risk_score:g}/100 — current conditions indicate lower flood potential" if risk_score is not None and risk_score < 40 else f"Risk score {risk_score:g}/100 — current conditions indicate moderate flood potential" if risk_score is not None else "Risk score unavailable", "negative" if risk_score is not None and risk_score >= 70 else "positive" if risk_score is not None and risk_score < 40 else "neutral")
-    risk_level_comment = _comment(f"Risk level: {risk.get('risk_level')} — classification reflects the current flood-risk state" if risk.get("risk_level") else "Risk level unavailable", "negative" if any(word in risk_level_text for word in ("high", "severe", "very high")) else "positive" if any(word in risk_level_text for word in ("low", "safe")) else "neutral")
+    risk_comment = _comment(
+        "Current indicators point to elevated modelled flood potential."
+        if risk_score is not None and risk_score >= 70
+        else "Current indicators point to lower modelled flood potential."
+        if risk_score is not None and risk_score < 40
+        else "Current indicators warrant continued monitoring for flood escalation."
+        if risk_score is not None
+        else "Risk score information is unavailable.",
+        "negative" if risk_score is not None and risk_score >= 70 else "positive" if risk_score is not None and risk_score < 40 else "neutral",
+    )
+    risk_level_comment = _comment(
+        "The current category reflects the model's combined risk indicators."
+        if risk.get("risk_level")
+        else "Risk-level information is unavailable.",
+        "negative" if any(word in risk_level_text for word in ("high", "severe", "very high")) else "positive" if any(word in risk_level_text for word in ("low", "safe")) else "neutral",
+    )
     rainfall_numeric = _numeric_value(weather_outputs["rainfall_mm"])
     humidity_numeric = _numeric_value(weather_outputs["humidity"])
-    rainfall_comment = _comment(f"{rainfall_numeric:g} mm rainfall — heavy precipitation can rapidly increase flash-flood potential" if rainfall_numeric is not None and rainfall_numeric >= 50 else f"{rainfall_numeric:g} mm rainfall — lower immediate rainfall-driven flood pressure" if rainfall_numeric is not None and rainfall_numeric < 20 else f"{rainfall_numeric:g} mm rainfall — moderate precipitation warrants continued monitoring" if rainfall_numeric is not None else "Rainfall data unavailable", "negative" if rainfall_numeric is not None and rainfall_numeric >= 50 else "positive" if rainfall_numeric is not None and rainfall_numeric < 20 else "neutral")
-    temperature_comment = _comment(f"{_numeric_value(weather_outputs['temperature_c']):g}°C — temperature has limited direct influence on immediate flood risk" if _numeric_value(weather_outputs["temperature_c"]) is not None else "Temperature data unavailable")
-    humidity_comment = _comment(f"{humidity_numeric:g}% humidity — elevated atmospheric moisture can support heavy-rainfall conditions" if humidity_numeric is not None and humidity_numeric > 80 else f"{humidity_numeric:g}% humidity — lower atmospheric moisture contribution to immediate flood risk" if humidity_numeric is not None else "Humidity data unavailable", "negative" if humidity_numeric is not None and humidity_numeric > 80 else "positive" if humidity_numeric is not None else "neutral")
+    rainfall_comment = _comment(
+        "Recent rainfall can rapidly increase runoff and flash-flood potential."
+        if rainfall_numeric is not None and rainfall_numeric >= 50
+        else "Recent rainfall adds short-term runoff pressure; monitor further accumulation."
+        if rainfall_numeric is not None and rainfall_numeric >= 20
+        else "Little recent rainfall is adding to immediate runoff pressure."
+        if rainfall_numeric is not None
+        else "Rainfall information is unavailable.",
+        "negative" if rainfall_numeric is not None and rainfall_numeric >= 50 else "neutral" if rainfall_numeric is not None and rainfall_numeric >= 20 else "positive" if rainfall_numeric is not None else "neutral",
+    )
+    temperature_numeric = _numeric_value(weather_outputs["temperature_c"])
+    temperature_comment = _comment(
+        "Temperature alone is not a primary short-term flood trigger."
+        if temperature_numeric is not None
+        else "Temperature information is unavailable."
+    )
+    humidity_comment = _comment(
+        "Higher atmospheric moisture can support heavy-rainfall development."
+        if humidity_numeric is not None and humidity_numeric > 80
+        else "Humidity alone provides limited evidence of immediate flood development."
+        if humidity_numeric is not None
+        else "Humidity information is unavailable.",
+        "negative" if humidity_numeric is not None and humidity_numeric > 80 else "positive" if humidity_numeric is not None else "neutral",
+    )
     state = location["name"].split(",")[-2].strip()
     monsoon_status = MONSOON_STATUS_BY_STATE.get(state, "No")
-    monsoon_comment = _comment(f"Monsoon active in {state} — persistent moisture can support heavy rainfall" if monsoon_status == "Yes" else f"Monsoon influence is lower in {state} — this factor contributes less to current rainfall potential")
+    monsoon_comment = _comment(
+        "Active monsoon conditions provide a persistent moisture source for heavy rainfall."
+        if monsoon_status == "Yes"
+        else "Outside the active monsoon season, seasonal moisture contribution is generally lower."
+    )
     return render(request, "redirect.html", {
         "location": location,
         "location_key": location_key,
