@@ -185,12 +185,16 @@ def get_event_tile_data(location_key):
             "negative" if slope_high or slope_medium else "positive",
         ),
         "river_distance": _comment(
-            "Close river proximity increases exposure to overbank flooding and rapid channel response."
-            if river_numeric is not None and river_numeric < 500
-            else "Greater separation generally reduces direct river-flood exposure."
+            "The site is very close to the river, so overbank flooding and rapid channel response can pose direct exposure."
+            if river_numeric is not None and river_numeric <= 100
+            else "The site is close to the river, so river overflow can increase local flood exposure."
+            if river_numeric is not None and river_numeric <= 500
+            else "The site has moderate separation from the river, reducing direct river-overflow exposure."
+            if river_numeric is not None and river_numeric <= 1000
+            else "The site is relatively far from the river, reducing direct river-overflow exposure."
             if river_numeric is not None
             else "River proximity information is unavailable.",
-            "negative" if river_numeric is not None and river_numeric < 500 else "positive" if river_numeric is not None else "neutral",
+            "negative" if river_numeric is not None and river_numeric <= 500 else "neutral" if river_numeric is not None and river_numeric <= 1000 else "positive" if river_numeric is not None else "neutral",
         ),
         "soil_texture": _comment(
             soil_texture_comment,
