@@ -334,7 +334,8 @@ def redirect_result(request):
     temperature_comment = _comment(
         "Current temperature can influence atmospheric instability, but rainfall remains the stronger immediate flood driver."
         if temperature_numeric is not None
-        else "Temperature information is unavailable."
+        else "Temperature information is unavailable.",
+        "neutral" if temperature_numeric is not None else "neutral",
     )
     humidity_comment = _comment(
         "High atmospheric moisture can support heavy-rainfall development."
@@ -351,7 +352,8 @@ def redirect_result(request):
     monsoon_comment = _comment(
         "Active monsoon conditions provide a persistent moisture source for heavy rainfall."
         if monsoon_status == "Yes"
-        else "Outside the active monsoon season, seasonal moisture contribution is generally lower."
+        else "Outside the active monsoon season, seasonal moisture contribution is generally lower.",
+        "negative" if monsoon_status == "Yes" else "positive",
     )
     return render(request, "redirect.html", {
         "location": location,
